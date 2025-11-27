@@ -9,6 +9,8 @@ import path from "path";
 import { fileURLToPath } from "url";
 import { koaMulter } from "./middleware/upload.js";
 import { annotateImage } from "./scripts/lm.js";
+import { extractStructuredExif } from "./helpers/exif.js";
+
 import { pool } from "./db/index.js";
 import crypto from "crypto";
 
@@ -31,38 +33,99 @@ router.get("/", async (ctx) => {
 });
 
 router.post("/upload", koaMulter("file"), async (ctx) => {
-  const imgPath = ctx.file.path;
-  const { file } = ctx;
-  // exif
-  const exif = await exifr.parse(imgPath).catch(() => null);
+  const file = ctx.file;
+  if (!file) {
+    ctx.throw(400, "No file uploaded");
+    return;
+  }
 
-  // resized version
-  const resized = await sharp(imgPath)
-    .resize({ width: 200 })
-    .jpeg({ quality: 80 })
-    .toBuffer();
+  // read full buffer for hashing
+  const fileBuffer = await sharp(file.path).toBuffer();
 
-  const base64Thumb = `data:image/jpeg;base64,${resized.toString("base64")}`;
-  // --- LM Studio annotation ---
-  const annotation = await annotateImage(resized);
-  const fileHash = crypto
-    .createHash("sha1")
-    .update(await sharp(file.path).toBuffer())
-    .digest("hex");
+  const fileHash = crypto.createHash("sha1").update(fileBuffer).digest("hex");
 
-  const result = await pool.query(
-    `INSERT INTO photos (file_hash, file_name, file_path, exif, annotation)
-      VALUES ($1, $2, $3, $4, $5)
-      ON CONFLICT (file_hash) DO NOTHING
-      RETURNING id`,
-    [fileHash, ctx.file.originalname, ctx.file.path, exif, annotation],
+  // check dedupe
+  const exists = await pool.query(
+    "SELECT id FROM photos WHERE file_hash = $1",
+    [fileHash],
   );
 
+  if (exists.rows.length > 0) {
+    ctx.body = {
+      status: "duplicate",
+      id: exists.rows[0].id,
+    };
+    return;
+  }
+
+  // EXIF parse (may fail, so catch)
+  const exif = await exifr.parse(file.path).catch(() => null);
+  const meta = extractStructuredExif(exif);
+
+  // Thumbnail
+  const thumb = await sharp(file.path)
+    .resize({ width: 600 })
+    .jpeg({ quality: 80 })
+    .toBuffer();
+  const base64Thumb = `data:image/jpeg;base64,${thumb.toString("base64")}`;
+
+  // Vision annotation
+  const annotation = await annotateImage(thumb);
+
+  // DB insert
+  const insert = await pool.query(
+    `
+    INSERT INTO photos (
+      file_hash, file_name, file_path,
+      exif, annotation,
+
+      location_point, location_metadata,
+      gps_altitude, taken_at,
+      camera_make, camera_model, lens,
+      focal_length, iso, exposure_time, aperture,
+      device_type
+    )
+    VALUES (
+      $1,$2,$3,
+      $4,$5,
+
+      $6,$7,
+      $8,$9,
+      $10,$11,$12,
+      $13,$14,$15,$16,
+      $17
+    )
+    RETURNING id;
+    `,
+    [
+      fileHash,
+      file.originalname,
+      file.path,
+
+      exif,
+      annotation,
+
+      meta.location_point,
+      meta.location_metadata,
+      meta.gps_altitude,
+      meta.taken_at,
+      meta.camera_make,
+      meta.camera_model,
+      meta.lens,
+      meta.focal_length,
+      meta.iso,
+      meta.exposure_time,
+      meta.aperture,
+      meta.device_type,
+    ],
+  );
+  console.log("RAW EXIF:", exif);
   await ctx.render("upload-result", {
     fileName: ctx.file.originalname,
     exif,
     thumb: base64Thumb,
     annotation,
+    meta,
   });
 });
 
