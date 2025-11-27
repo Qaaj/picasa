@@ -1,0 +1,113 @@
+doctype html
+html
+  head
+    meta(charset="utf-8")
+    title Directory Browser
+    script(src="https://cdn.tailwindcss.com")
+
+  body(class="bg-gray-100 min-h-screen")
+
+    .flex.items-center.justify-between.p-4.bg-white.shadow
+      h1.text-xl.font-semibold Select Folders
+      button#scanBtn(class="bg-blue-600 hover:bg-blue-700 text-white px-4 py-2 rounded-md")
+        | Scan Selected
+
+    .max-w-4xl.mx-auto.mt-6.bg-white.shadow-md.rounded-lg.p-4
+      div#tree
+
+    script.
+      const treeRoot = document.getElementById("tree");
+      const selected = new Set();
+
+      function createFolderNode(folder, level = 0) {
+        const wrapper = document.createElement("div");
+        wrapper.className = "py-1";
+
+        const row = document.createElement("div");
+        row.className = "flex items-center gap-3 p-2 border rounded hover:bg-gray-50 cursor-pointer";
+        row.style.marginLeft = `${level * 20}px`;
+
+        // checkbox
+        const checkbox = document.createElement("input");
+        checkbox.type = "checkbox";
+        checkbox.checked = selected.has(folder.path);
+        checkbox.className = "h-4 w-4";
+        checkbox.addEventListener("click", (e) => {
+          e.stopPropagation();
+          if (checkbox.checked) selected.add(folder.path);
+          else selected.delete(folder.path);
+        });
+
+        // arrow (expand/collapse) only if subfolders > 0
+        let arrow = "";
+        if (folder.subfolders > 0) {
+          arrow = `
+            <svg class="h-4 w-4 text-gray-600 transition-transform" data-arrow fill="none"
+                 stroke="currentColor" stroke-width="2" viewBox="0 0 24 24">
+              <path d="M9 5l7 7-7 7" />
+            </svg>
+          `;
+        }
+
+        row.innerHTML = `
+          ${arrow}
+          <div class="font-medium">${folder.name}</div>
+          <div class="ml-auto text-gray-500 text-sm">${folder.subfolders} folders</div>
+          <div class="text-gray-500 text-sm">${folder.images} images</div>
+        `;
+
+        row.prepend(checkbox);
+        wrapper.appendChild(row);
+
+        // child container
+        const childContainer = document.createElement("div");
+        wrapper.appendChild(childContainer);
+
+        let expanded = false;
+
+        row.addEventListener("click", async (e) => {
+          if (e.target === checkbox) return;
+
+          if (folder.subfolders === 0) return;
+
+          const arrowIcon = row.querySelector("[data-arrow]");
+
+          if (!expanded) {
+            // expand
+            arrowIcon.style.transform = "rotate(90deg)";
+
+            const res = await fetch(`/dir?path=${encodeURIComponent(folder.path)}`);
+            const children = await res.json();
+
+            children.forEach(child => {
+              const childNode = createFolderNode(child, level + 1);
+              childContainer.appendChild(childNode);
+            });
+
+            expanded = true;
+          } else {
+            // collapse
+            arrowIcon.style.transform = "rotate(0deg)";
+            childContainer.innerHTML = "";
+            expanded = false;
+          }
+        });
+
+        return wrapper;
+      }
+
+      async function loadRoot(path) {
+        const res = await fetch(`/dir?path=${encodeURIComponent(path)}`);
+        const folders = await res.json();
+
+        treeRoot.innerHTML = "";
+        folders.forEach(f => {
+          treeRoot.appendChild(createFolderNode(f, 0));
+        });
+      }
+
+      loadRoot("/Users/janjorissen");
+
+      document.getElementById("scanBtn").addEventListener("click", () => {
+        alert("Scanning:\n" + Array.from(selected).join("\n"));
+      });
