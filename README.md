@@ -1,0 +1,2 @@
+# picasa
+fuck google
