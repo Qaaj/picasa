@@ -3,7 +3,7 @@ import { pool } from "../db/index.js";
 
 const router = new Router();
 
-router.get("/dashboard", async (ctx) => {
+router.get("/", async (ctx) => {
   const page = parseInt(ctx.query.page || "1", 10);
   const pageSize = 100; // adjust if needed
   const offset = (page - 1) * pageSize;
@@ -26,6 +26,7 @@ router.get("/dashboard", async (ctx) => {
     photos: rows,
     page,
     totalPages,
+    active: "dashboard",
   });
 });
 

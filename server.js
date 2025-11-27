@@ -29,12 +29,12 @@ app.use(
   }),
 );
 
-router.get("/", async (ctx) => {
-  await ctx.render("index");
+router.get("/upload", async (ctx) => {
+  await ctx.render("upload", { active: "upload" });
 });
 
 router.get("/browse", async (ctx) => {
-  await ctx.render("dir-browser");
+  await ctx.render("dir-browser", { active: "browser" });
 });
 
 app.use(dashboardRouter.routes());

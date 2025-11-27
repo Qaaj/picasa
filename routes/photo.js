@@ -12,7 +12,7 @@ router.get("/photo/:id", async (ctx) => {
     ctx.throw(404, "Photo not found");
   }
 
-  await ctx.render("photo-detail", { photo: rows[0] });
+  await ctx.render("photo-detail", { photo: rows[0], active: "photo-detail" });
 });
 
 export default router;

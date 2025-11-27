@@ -19,6 +19,7 @@ router.post("/upload", koaMulter("file"), async (ctx) => {
     exif: result.exifRaw || null,
     annotation: result.annotation || null,
     thumb: result.thumb || null,
+    active: "upload",
   });
 });
 
