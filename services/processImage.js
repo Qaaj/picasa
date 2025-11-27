@@ -15,6 +15,11 @@ export async function processImage({
   originalName = null,
   fileBuffer = null,
 }) {
+  const stats = fs.statSync(filePath); // filePath = absolute path to file
+
+  const fsCreatedAt = stats.birthtime ?? null; // macOS, Linux
+  const fsModifiedAt = stats.mtime ?? null;
+
   if (!fileBuffer) {
     fileBuffer = await sharp(filePath).toBuffer();
   }
@@ -98,7 +103,9 @@ export async function processImage({
        aperture,
        device_type,
        embedding_text,
-       thumb_base64
+       thumb_base64,
+       fs_created_at,
+       fs_modified_at
      )
      VALUES (
        $1,$2,$3,
@@ -109,7 +116,9 @@ export async function processImage({
        $13,$14,$15,$16,
        $17,
        $18,
-       $19
+       $19,
+       $20,
+       $21
      )
      RETURNING id;
      `,
@@ -133,6 +142,8 @@ export async function processImage({
       meta.device_type,
       embeddingTextPg,
       base64Thumb,
+      fsCreatedAt,
+      fsModifiedAt,
     ],
   );
 

@@ -11,6 +11,8 @@ import uploadRoutes from "./routes/upload.js";
 import dirRouter from "./routes/dir.js";
 import statusRouter from "./routes/scan-status.js";
 import scanFolder from "./routes/scan.js";
+import dashboardRouter from "./routes/dashboard.js";
+import photoDetail from "./routes/photo.js";
 
 const __filename = fileURLToPath(import.meta.url);
 const __dirname = path.dirname(__filename);
@@ -35,10 +37,12 @@ router.get("/browse", async (ctx) => {
   await ctx.render("dir-browser");
 });
 
+app.use(dashboardRouter.routes());
 app.use(uploadRoutes.routes()).use(uploadRoutes.allowedMethods());
 app.use(dirRouter.routes()).use(dirRouter.allowedMethods());
 app.use(statusRouter.routes()).use(statusRouter.allowedMethods());
 app.use(scanFolder.routes()).use(scanFolder.allowedMethods());
+app.use(photoDetail.routes()).use(photoDetail.allowedMethods());
 
 app.use(router.routes()).use(router.allowedMethods());
 

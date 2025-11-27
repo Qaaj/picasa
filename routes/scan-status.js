@@ -31,7 +31,11 @@ router.get("/scan-status", async (ctx) => {
 
   // 2. Count DB entries for this folder
   const result = await pool.query(
-    `SELECT COUNT(*) FROM photos WHERE file_path = $1`,
+    `
+      SELECT COUNT(*) AS count
+      FROM photos
+      WHERE file_path LIKE $1 || '/%'
+    `,
     [folder],
   );
 

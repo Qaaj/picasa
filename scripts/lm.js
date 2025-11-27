@@ -14,7 +14,7 @@ export async function annotateImage(imageBuffer) {
         content: [
           {
             type: "text",
-            text: "Return ONLY JSON: {title:string,tags:string[],description:string}",
+            text: "Return ONLY JSON: {title:string,tags:string[],description:string} - return in English only - max 500 chars",
           },
           {
             type: "image_url",

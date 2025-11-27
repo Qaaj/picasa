@@ -1,0 +1,18 @@
+doctype html
+html
+  head
+    title #{photo.file_name}
+    meta(charset="utf-8")
+    script(src="https://cdn.tailwindcss.com")
+
+  body(class="bg-gray-100 min-h-screen p-6")
+
+    a(class="text-blue-600" href="/dashboard") ← Back
+
+    div(class="max-w-3xl mx-auto bg-white shadow p-6 rounded-lg")
+      h1(class="text-xl font-semibold mb-4") #{photo.file_name}
+
+      img(class="w-full rounded" src=photo.thumb_base64)
+
+      pre(class="bg-gray-100 p-4 mt-6 rounded text-sm")
+        | #{JSON.stringify(photo, null, 2)}

@@ -2,13 +2,14 @@ import fs from "fs";
 import Router from "koa-router";
 import path from "path";
 
-// Extensions you treat as images
+// Image extensions counted
 const IMAGE_EXT = new Set([".jpg", ".jpeg", ".png", ".webp", ".heic", ".tif"]);
 
 const router = new Router();
 
 router.get("/dir", async (ctx) => {
   const root = ctx.query.path;
+
   if (!root || !fs.existsSync(root)) {
     ctx.body = [];
     return;
@@ -17,31 +18,34 @@ router.get("/dir", async (ctx) => {
   let entries = [];
 
   try {
+    // Try to read folder
     const dirents = fs.readdirSync(root, { withFileTypes: true });
 
     entries = dirents
-      // Hide hidden folders
+      // remove hidden
       .filter((e) => !e.name.startsWith("."))
 
-      // Convert to enriched objects
       .map((e) => {
         const fullPath = path.join(root, e.name);
 
-        // ---- 💥 IMPORTANT FIX ----
-        // Never trust dirent.isDirectory() — statSync is always correct
+        // 🔥 Always resolve real path + stat instead of trusting dirent
         let isDirectory = false;
+        let error = null;
+
         try {
-          const stat = fs.statSync(fullPath);
+          const stat = fs.statSync(fullPath); // follows symlink
           isDirectory = stat.isDirectory();
-        } catch {
+        } catch (err) {
+          // e.g. macOS TCC permission denied
+          error = err;
           isDirectory = false;
         }
 
         if (!isDirectory) {
-          return null; // file → drop
+          return null; // hide files completely
         }
 
-        // Count items inside the directory (non-recursive)
+        // 🔥 Count images + subfolders inside directory
         let subfolderCount = 0;
         let imageCount = 0;
 
@@ -57,22 +61,26 @@ router.get("/dir", async (ctx) => {
             }
           }
         } catch (err) {
-          console.error("Error reading inner folder", fullPath, err);
+          // 🔥 FE will show unreadable folders instead of pretending they are empty
+          error = err;
         }
 
         return {
           name: e.name,
           path: fullPath,
           type: "directory",
-          images: imageCount,
           subfolders: subfolderCount,
+          images: imageCount,
+          readable: error ? false : true, // 👈 FE can use this
+          error: error ? error.message : null, // 👈 debug info
         };
       })
 
-      // Remove nulls caused by non-directories
       .filter(Boolean);
   } catch (err) {
     console.error("ERROR reading", root, err);
+    ctx.body = [];
+    return;
   }
 
   ctx.body = entries;
