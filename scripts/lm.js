@@ -1,11 +1,12 @@
+import http from "http";
 import fetch from "node-fetch";
 
-const LM_URL = "http://localhost:1234/v1/chat/completions"; // adjust if needed
+const noKeepAliveAgent = new http.Agent({ keepAlive: false });
 
-export async function annotateImage(buffer) {
-  const base64 = buffer.toString("base64");
+export async function annotateImage(imageBuffer) {
+  const base64 = imageBuffer.toString("base64");
 
-  const body = {
+  const payload = {
     model: "qwen/qwen3-vl-4b",
     messages: [
       {
@@ -13,36 +14,41 @@ export async function annotateImage(buffer) {
         content: [
           {
             type: "text",
-            text: "Return ONLY JSON: {title: string, tags: string[], description: string}",
+            text: "Return ONLY JSON: {title:string,tags:string[],description:string}",
           },
           {
             type: "image_url",
-            image_url: {
-              url: `data:image/jpeg;base64,${base64}`,
-            },
+            image_url: { url: `data:image/jpeg;base64,${base64}` },
           },
         ],
       },
     ],
   };
 
-  const res = await fetch(LM_URL, {
+  const res = await fetch("http://localhost:1234/v1/chat/completions", {
     method: "POST",
+    body: JSON.stringify(payload),
     headers: { "Content-Type": "application/json" },
-    body: JSON.stringify(body),
+
+    // 🔥 THIS IS THE FIX
+    agent: noKeepAliveAgent,
   });
 
-  const json = await res.json();
-
-  // Grab the assistant text
-  const text = json?.choices?.[0]?.message?.content ?? "{}";
-
-  let parsed;
-  try {
-    parsed = JSON.parse(text);
-  } catch {
-    parsed = { error: "invalid JSON returned", raw: text };
+  if (!res.ok) {
+    throw new Error(`LM Studio returned ${res.status}`);
   }
 
-  return parsed;
+  const data = await res.json();
+
+  let content = data.choices?.[0]?.message?.content;
+  if (!content) return null;
+
+  // Safe parse since LLM sometimes returns trailing stuff
+  try {
+    return JSON.parse(content);
+  } catch {
+    console.error("Invalid JSON from LM:");
+    console.error(content);
+    return null;
+  }
 }

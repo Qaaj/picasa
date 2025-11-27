@@ -18,6 +18,7 @@ html
     script.
       const treeRoot = document.getElementById("tree");
       const selected = new Set();
+      const IMAGE_EXT = new Set([".jpg",".jpeg",".png",".webp",".heic",".tif"]);
 
       function createFolderNode(folder, level = 0) {
         const wrapper = document.createElement("div");
@@ -38,7 +39,7 @@ html
           else selected.delete(folder.path);
         });
 
-        // arrow (expand/collapse) only if subfolders > 0
+        // arrow if subfolders exist
         let arrow = "";
         if (folder.subfolders > 0) {
           arrow = `
@@ -58,6 +59,13 @@ html
 
         row.prepend(checkbox);
         wrapper.appendChild(row);
+
+        // ▼ SCAN STATUS AREA ADDED HERE ▼
+        const scanStatus = document.createElement("div");
+        scanStatus.className = "ml-8 mt-1 text-sm text-gray-700";
+        wrapper.appendChild(scanStatus);
+
+        updateScanStatus(folder.path, scanStatus);
 
         // child container
         const childContainer = document.createElement("div");
@@ -79,6 +87,8 @@ html
             const res = await fetch(`/dir?path=${encodeURIComponent(folder.path)}`);
             const children = await res.json();
 
+            childContainer.innerHTML = "";
+
             children.forEach(child => {
               const childNode = createFolderNode(child, level + 1);
               childContainer.appendChild(childNode);
@@ -96,6 +106,37 @@ html
         return wrapper;
       }
 
+      async function updateScanStatus(folderPath, el) {
+        el.innerHTML = `<span class="text-gray-400">Loading…</span>`;
+
+        const res = await fetch(`/scan-status?path=${encodeURIComponent(folderPath)}`);
+        const data = await res.json();
+
+        if (data.error) {
+          el.innerHTML = `<span class="text-red-500">${data.error}</span>`;
+          return;
+        }
+
+        const { total_files, db_entries, remaining, is_complete } = data;
+
+        if (total_files === 0) {
+          el.innerHTML = `<span class="text-gray-400">No images</span>`;
+          return;
+        }
+
+        if (is_complete) {
+          el.innerHTML = `<span class="text-green-600 font-semibold">✓ Fully scanned (${db_entries}/${total_files})</span>`;
+        } else {
+          el.innerHTML = `
+            <span class="text-orange-600 font-medium">${db_entries}/${total_files} scanned</span>
+            <button class="scan-folder bg-blue-600 hover:bg-blue-700 text-white px-2 py-1 rounded ml-4"
+              data-path="${folderPath}">
+              Scan missing (${remaining})
+            </button>
+          `;
+        }
+      }
+
       async function loadRoot(path) {
         const res = await fetch(`/dir?path=${encodeURIComponent(path)}`);
         const folders = await res.json();
@@ -108,6 +149,36 @@ html
 
       loadRoot("/Users/janjorissen");
 
+      // Scan Selected (global)
       document.getElementById("scanBtn").addEventListener("click", () => {
         alert("Scanning:\n" + Array.from(selected).join("\n"));
+      });
+
+      // Scan this folder only
+      document.addEventListener("click", async (e) => {
+        if (!e.target.classList.contains("scan-folder")) return;
+
+        const folderPath = e.target.dataset.path;
+
+        e.target.disabled = true;
+        e.target.innerText = "Scanning…";
+
+        const res = await fetch("/scan-folder", {
+          method: "POST",
+          headers: { "Content-Type": "application/json" },
+          body: JSON.stringify({ folder: folderPath }),
+        });
+
+        const result = await res.json();
+
+        // Refresh its scan status
+        const statusEl = e.target.parentElement;
+        await updateScanStatus(folderPath, statusEl);
+
+        alert(
+          `Finished scanning:\n${folderPath}\n\n` +
+          `Inserted: ${result.inserted}\n` +
+          `Skipped (duplicates): ${result.skipped}\n` +
+          `Total images: ${result.total}`
+        );
       });
