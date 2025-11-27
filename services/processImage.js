@@ -9,6 +9,7 @@ import { extractStructuredExif } from "../helpers/exif.js";
 import { buildTextEmbeddingInput } from "../helpers/text-embedding-input.js";
 import { pool } from "../db/index.js";
 import { toPgVector } from "../helpers/vector.js";
+import { inferExtraMetadata } from "../helpers/infer-extra.js";
 
 export async function processImage({
   filePath,
@@ -65,7 +66,6 @@ export async function processImage({
   ]);
 
   const meta = extractStructuredExif(exifRaw);
-
   // -------------------------
   // 4. Embedding text
   // -------------------------
@@ -79,6 +79,22 @@ export async function processImage({
   const embeddingText = await embedText(textForEmbedding);
   const embeddingTextPg = toPgVector(embeddingText);
 
+  console.log({ originalname: originalName, path: filePath });
+  const extra = inferExtraMetadata({
+    annotation,
+    originalname: originalName,
+    path: filePath,
+  });
+
+  console.log("_----------------__");
+  console.log(extra);
+
+  const annotationFinal = {
+    ...annotation,
+    tags: Array.from(
+      new Set([...(annotation?.tags || []), ...(extra.tags || [])]),
+    ),
+  };
   // -------------------------
   // 5. Insert into DB
   // -------------------------
@@ -127,7 +143,7 @@ export async function processImage({
       originalName || filePath.split("/").pop(),
       filePath,
       exifRaw,
-      annotation,
+      annotationFinal,
       meta.location_point,
       meta.location_metadata,
       meta.gps_altitude,
