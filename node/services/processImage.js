@@ -148,11 +148,14 @@ export async function processImage(
   // 7. Wait for LM Studio + build embedding
   // -------------------------
   const annotation = await annotationPromise;
-
+  const imageMeta = await sharp(filePath).metadata();
   const extra = inferExtraMetadata({
     annotation,
     originalname: originalName,
+    exif: exifRaw, // full EXIF object from exifr
+    meta: meta, // your structured EXIF
     path: filePath,
+    imageMeta,
   });
 
   const annotationFinal = {
