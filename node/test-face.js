@@ -1,44 +1,80 @@
-import fs from "fs";
-import fetch from "node-fetch";
-import sharp from "sharp";
-
+import pg from "pg";
 import "dotenv/config";
-import { drawDetections } from "./draw-face.js";
 
-const IMG_PATH = "./img/test2.jpg"; // path to your image
-const PASSTHRU_URL = process.env.PASSTHRU; // correct port
+const pool = new pg.Pool({
+  connectionString: process.env.DATABASE_URL,
+});
 
-async function main() {
-  console.log("Reading image...");
-  const imgBuffer = fs.readFileSync(IMG_PATH);
-  const imgB64 = imgBuffer.toString("base64");
-
-  const payload = { image: imgB64 };
-
-  console.log("Sending to passthru…");
-  const response = await fetch(PASSTHRU_URL, {
-    method: "POST",
-    headers: { "Content-Type": "application/json" },
-    body: JSON.stringify(payload),
-  });
-
-  const json = await response.json();
-
-  console.log(JSON.stringify(json, null, 2));
-
-  const faces = json.faces;
-  console.log(faces.length, "Faces Detected");
-
-  if (!faces || faces.length === 0) {
-    console.log("No faces detected.");
-    return;
-  }
-
-  await drawDetections(IMG_PATH, "./img/detected.jpg", json.faces);
-
-  // -------
-  // DRAW BOXES
-  // -------
+// Converts '[0.1,0.2,...]' to [0.1,0.2,...]
+function parseVec(t) {
+  const inner = t.slice(1, -1); // remove brackets
+  return inner.split(",").map(Number);
 }
 
-main().catch(console.error);
+function dot(a, b) {
+  let s = 0;
+  for (let i = 0; i < a.length; i++) s += a[i] * b[i];
+  return s;
+}
+
+function norm(a) {
+  return Math.sqrt(dot(a, a));
+}
+
+function normalize(a) {
+  const n = norm(a);
+  return a.map((v) => v / n);
+}
+
+function cosineDistance(a, b) {
+  const na = norm(a);
+  const nb = norm(b);
+  const cosSim = dot(a, b) / (na * nb);
+  return 1 - cosSim;
+}
+
+async function main() {
+  // Fetch only IDs 8,9,10
+  const res = await pool.query(`
+    SELECT id, embedding::text AS emb_text
+    FROM faces
+    WHERE id IN (8, 9, 10)
+    ORDER BY id;
+  `);
+
+  const vectors = res.rows.map((r) => ({
+    id: r.id,
+    vec: parseVec(r.emb_text),
+  }));
+
+  console.log(
+    "Loaded embeddings:",
+    vectors.map((v) => v.id),
+  );
+
+  // --- Compute golden vector (mean of the three) ---
+  const dim = vectors[0].vec.length;
+  const sum = new Array(dim).fill(0);
+
+  for (const { vec } of vectors) {
+    for (let i = 0; i < dim; i++) {
+      sum[i] += vec[i];
+    }
+  }
+
+  const mean = sum.map((v) => v / vectors.length);
+  const golden = normalize(mean);
+
+  console.log("\nGolden vector ready.");
+
+  // --- Compare each original vector to golden ---
+  console.log("\nCosine distances vs Golden Vector:");
+  for (const { id, vec } of vectors) {
+    const dist = cosineDistance(vec, golden);
+    console.log(`  id=${id}   dist=${dist.toFixed(6)}`);
+  }
+
+  await pool.end();
+}
+
+main();

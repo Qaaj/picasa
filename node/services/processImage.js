@@ -17,9 +17,9 @@ export async function processImage(
   { filePath, originalName = null, fileBuffer = null },
   scanFaces = false,
 ) {
-  const stats = fs.statSync(filePath); // filePath = absolute path to file
+  const stats = fs.statSync(filePath);
 
-  const fsCreatedAt = stats.birthtime ?? null; // macOS, Linux
+  const fsCreatedAt = stats.birthtime ?? null;
   const fsModifiedAt = stats.mtime ?? null;
 
   if (!fileBuffer) {
@@ -27,17 +27,10 @@ export async function processImage(
   }
 
   // -------------------------
-  // 1. Hash
+  // 1. Hash + dedup
   // -------------------------
   const fileHash = crypto.createHash("sha1").update(fileBuffer).digest("hex");
 
-  console.log("SCAN FACES?", scanFaces);
-  if (scanFaces) {
-    enqueue(async () => {
-      await processFaces(fileBuffer, fileHash);
-    });
-  }
-  // Dedup
   const existing = await pool.query(
     "SELECT id FROM photos WHERE file_hash = $1",
     [fileHash],
@@ -62,48 +55,18 @@ export async function processImage(
   const base64Thumb = `data:image/jpeg;base64,${thumbBuffer.toString("base64")}`;
 
   // -------------------------
-  // 3. EXIF + annotation (parallel)
+  // 3. Kick off LM Studio ASAP
   // -------------------------
-  const exifPromise = exifr.parse(filePath).catch(() => null);
   const annotationPromise = annotateImage(thumbBuffer);
 
-  const [exifRaw, annotation] = await Promise.all([
-    exifPromise,
-    annotationPromise,
-  ]);
-
+  // -------------------------
+  // 4. EXIF + meta
+  // -------------------------
+  const exifRaw = await exifr.parse(filePath).catch(() => null);
   const meta = extractStructuredExif(exifRaw);
+
   // -------------------------
-  // 4. Embedding text
-  // -------------------------
-  const textForEmbedding = buildTextEmbeddingInput({
-    file: { originalname: originalName, path: filePath },
-    meta,
-    exif: exifRaw,
-    annotation,
-  });
-
-  const embeddingText = await embedText(textForEmbedding);
-  const embeddingTextPg = toPgVector(embeddingText);
-
-  console.log({ originalname: originalName, path: filePath });
-  const extra = inferExtraMetadata({
-    annotation,
-    originalname: originalName,
-    path: filePath,
-  });
-
-  console.log("_----------------__");
-  console.log(extra);
-
-  const annotationFinal = {
-    ...annotation,
-    tags: Array.from(
-      new Set([...(annotation?.tags || []), ...(extra.tags || [])]),
-    ),
-  };
-  // -------------------------
-  // 5. Insert into DB
+  // 5. INSERT photo immediately (no annotation/embedding yet)
   // -------------------------
   const insert = await pool.query(
     `
@@ -150,7 +113,7 @@ export async function processImage(
       originalName || filePath.split("/").pop(),
       filePath,
       exifRaw,
-      annotationFinal,
+      null, // annotation (filled later)
       meta.location_point,
       meta.location_metadata,
       meta.gps_altitude,
@@ -163,20 +126,75 @@ export async function processImage(
       meta.exposure_time,
       meta.aperture,
       meta.device_type,
-      embeddingTextPg,
+      null, // embedding_text (filled later)
       base64Thumb,
       fsCreatedAt,
       fsModifiedAt,
     ],
   );
 
+  const photoId = insert.rows[0].id;
+
+  // -------------------------
+  // 6. Kick off face recognition asynchronously (FK-safe now)
+  // -------------------------
+  if (scanFaces) {
+    enqueue(async () => {
+      await processFaces(fileBuffer, fileHash);
+    });
+  }
+
+  // -------------------------
+  // 7. Wait for LM Studio + build embedding
+  // -------------------------
+  const annotation = await annotationPromise;
+
+  const extra = inferExtraMetadata({
+    annotation,
+    originalname: originalName,
+    path: filePath,
+  });
+
+  const annotationFinal = {
+    ...annotation,
+    tags: Array.from(
+      new Set([...(annotation?.tags || []), ...(extra.tags || [])]),
+    ),
+  };
+
+  const textForEmbedding = buildTextEmbeddingInput({
+    file: { originalname: originalName, path: filePath },
+    meta,
+    exif: exifRaw,
+    annotation: annotationFinal,
+  });
+
+  const embeddingText = await embedText(textForEmbedding);
+  const embeddingTextPg = toPgVector(embeddingText);
+
+  // -------------------------
+  // 8. UPDATE photo with annotation + embedding
+  // -------------------------
+  await pool.query(
+    `
+      UPDATE photos
+      SET annotation = $2,
+          embedding_text = $3
+      WHERE file_hash = $1
+    `,
+    [fileHash, annotationFinal, embeddingTextPg],
+  );
+
+  // -------------------------
+  // 9. Return to FE
+  // -------------------------
   return {
-    id: insert.rows[0].id,
+    id: photoId,
     hash: fileHash,
     skipped: false,
     exifRaw,
     meta,
-    annotation,
+    annotation: annotationFinal,
     embeddingText,
     thumb: base64Thumb,
   };
