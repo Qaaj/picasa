@@ -1,0 +1,22 @@
+extends layout
+
+block content
+  .max-w-2xl.mx-auto.mt-10.p-10.bg-white.rounded.shadow
+
+    h1.text-xl.font-bold.mb-4 Upload Result
+
+    p.mb-2 File name: #{fileName}
+
+    if thumb
+      h2.text-lg.font-semibold.mt-4 Resized Preview
+      img.mt-2(src=thumb style="max-width:100%; border-radius:6px;")
+
+    if annotation
+      h2.text-lg.font-semibold.mt-6 Annotation
+      pre.text-sm.bg-gray-100.p-4.rounded= JSON.stringify(annotation, null, 2)
+
+    if exif
+      h2.text-lg.font-semibold.mt-6 EXIF Metadata
+      pre.text-sm.bg-gray-100.p-4.rounded= JSON.stringify(exif, null, 2)
+    else
+      h2.text-lg.font-semibold.mt-6 No EXIF metadata found

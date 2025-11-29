@@ -1,0 +1,173 @@
+extends layout
+
+block content
+  .flex.items-center.justify-between.p-4.bg-white.shadow.mb-6(class="flex items-center justify-between p-4 bg-white shadow mb-6")
+    h1(class="text-xl font-semibold") Select Folders
+    button#scanBtn(type="button" class="bg-blue-600 hover:bg-blue-700 text-white px-4 py-2 rounded-md") Scan Selected
+
+  .max-w-4xl.mx-auto.mt-6.bg-white.shadow-md.rounded-lg.p-4(class="max-w-4xl mx-auto mt-6 bg-white shadow-md rounded-lg p-4")
+    #tree
+
+  script.
+    const treeRoot = document.getElementById("tree");
+    const selected = new Set();
+    const IMAGE_EXT = new Set([".jpg",".jpeg",".png",".webp",".heic",".tif"]);
+
+    function createFolderNode(folder, level = 0) {
+      const wrapper = document.createElement("div");
+      wrapper.className = "py-1";
+
+      const row = document.createElement("div");
+      row.className = "flex items-center gap-3 p-2 border rounded hover:bg-gray-50 cursor-pointer";
+      row.style.marginLeft = `${level * 20}px`;
+
+      // checkbox
+      const checkbox = document.createElement("input");
+      checkbox.type = "checkbox";
+      checkbox.checked = selected.has(folder.path);
+      checkbox.className = "h-4 w-4";
+      checkbox.addEventListener("click", (e) => {
+        e.stopPropagation();
+        if (checkbox.checked) selected.add(folder.path);
+        else selected.delete(folder.path);
+      });
+
+      // arrow if subfolders exist
+      let arrow = "";
+      if (folder.subfolders > 0) {
+        arrow = `
+          <svg class="h-4 w-4 text-gray-600 transition-transform" data-arrow fill="none"
+               stroke="currentColor" stroke-width="2" viewBox="0 0 24 24">
+            <path d="M9 5l7 7-7 7" />
+          </svg>
+        `;
+      }
+
+      row.innerHTML = `
+        ${arrow}
+        <div class="font-medium">${folder.name}</div>
+        <div class="ml-auto text-gray-500 text-sm">${folder.subfolders} folders</div>
+        <div class="text-gray-500 text-sm">${folder.images} images</div>
+      `;
+
+      row.prepend(checkbox);
+      wrapper.appendChild(row);
+
+      // scan status
+      const scanStatus = document.createElement("div");
+      scanStatus.className = "ml-8 mt-1 text-sm text-gray-700";
+      wrapper.appendChild(scanStatus);
+
+      updateScanStatus(folder.path, scanStatus);
+
+      // child container
+      const childContainer = document.createElement("div");
+      wrapper.appendChild(childContainer);
+
+      let expanded = false;
+
+      row.addEventListener("click", async (e) => {
+        if (e.target === checkbox) return;
+
+        if (folder.subfolders === 0) return;
+
+        const arrowIcon = row.querySelector("[data-arrow]");
+
+        if (!expanded) {
+          arrowIcon.style.transform = "rotate(90deg)";
+          const res = await fetch(`/dir?path=${encodeURIComponent(folder.path)}`);
+          const children = await res.json();
+
+          childContainer.innerHTML = "";
+
+          children.forEach(child => {
+            const childNode = createFolderNode(child, level + 1);
+            childContainer.appendChild(childNode);
+          });
+
+          expanded = true;
+        } else {
+          arrowIcon.style.transform = "rotate(0deg)";
+          childContainer.innerHTML = "";
+          expanded = false;
+        }
+      });
+
+      return wrapper;
+    }
+
+    async function updateScanStatus(folderPath, el) {
+      el.innerHTML = `<span class="text-gray-400">Loading…</span>`;
+
+      const res = await fetch(`/scan-status?path=${encodeURIComponent(folderPath)}`);
+      const data = await res.json();
+
+      if (data.error) {
+        el.innerHTML = `<span class="text-red-500">${data.error}</span>`;
+        return;
+      }
+
+      const { total_files, db_entries, remaining, is_complete } = data;
+
+      if (total_files === 0) {
+        el.innerHTML = `<span class="text-gray-400">No images</span>`;
+        return;
+      }
+
+      if (is_complete) {
+        el.innerHTML = `<span class="text-green-600 font-semibold">✓ Fully scanned (${db_entries}/${total_files})</span>`;
+      } else {
+        el.innerHTML = `
+          <span class="text-orange-600 font-medium">${db_entries}/${total_files} scanned</span>
+          <button class="scan-folder bg-blue-600 hover:bg-blue-700 text-white px-2 py-1 rounded ml-4"
+            data-path="${folderPath}">
+            Scan missing (${remaining})
+          </button>
+        `;
+      }
+    }
+
+    async function loadRoot(path) {
+      const res = await fetch(`/dir?path=${encodeURIComponent(path)}`);
+      const folders = await res.json();
+
+      treeRoot.innerHTML = "";
+      folders.forEach(f => {
+        treeRoot.appendChild(createFolderNode(f, 0));
+      });
+    }
+
+    loadRoot("/Users/janjorissen");
+
+    // Scan Selected
+    document.getElementById("scanBtn").addEventListener("click", () => {
+      alert("Scanning:\n" + Array.from(selected).join("\n"));
+    });
+
+    // Scan only this folder
+    document.addEventListener("click", async (e) => {
+      if (!e.target.classList.contains("scan-folder")) return;
+
+      const folderPath = e.target.dataset.path;
+
+      e.target.disabled = true;
+      e.target.innerText = "Scanning…";
+
+      const res = await fetch("/scan-folder", {
+        method: "POST",
+        headers: { "Content-Type": "application/json" },
+        body: JSON.stringify({ folder: folderPath }),
+      });
+
+      const result = await res.json();
+
+      const statusEl = e.target.parentElement;
+      await updateScanStatus(folderPath, statusEl);
+
+      alert(
+        `Finished scanning:\n${folderPath}\n\n` +
+        `Inserted: ${result.inserted}\n` +
+        `Skipped: ${result.skipped}\n` +
+        `Total images: ${result.total}`
+      );
+    });

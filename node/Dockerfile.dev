@@ -1,0 +1,14 @@
+FROM node:20
+
+WORKDIR /app
+
+ENV PGHOST=host.docker.internal
+ENV PGPORT=5432
+
+COPY package*.json ./
+RUN npm install
+RUN npm install -g nodemon
+
+EXPOSE 3000
+
+CMD ["npm", "run", "dev"]
