@@ -10,12 +10,13 @@ import { buildTextEmbeddingInput } from "../helpers/text-embedding-input.js";
 import { pool } from "../db/index.js";
 import { toPgVector } from "../helpers/vector.js";
 import { inferExtraMetadata } from "../helpers/infer-extra.js";
+import { enqueue } from "./jobQueue.js";
+import { processFaces } from "./processFaces.js";
 
-export async function processImage({
-  filePath,
-  originalName = null,
-  fileBuffer = null,
-}) {
+export async function processImage(
+  { filePath, originalName = null, fileBuffer = null },
+  scanFaces = false,
+) {
   const stats = fs.statSync(filePath); // filePath = absolute path to file
 
   const fsCreatedAt = stats.birthtime ?? null; // macOS, Linux
@@ -30,6 +31,12 @@ export async function processImage({
   // -------------------------
   const fileHash = crypto.createHash("sha1").update(fileBuffer).digest("hex");
 
+  console.log("SCAN FACES?", scanFaces);
+  if (scanFaces) {
+    enqueue(async () => {
+      await processFaces(fileBuffer, fileHash);
+    });
+  }
   // Dedup
   const existing = await pool.query(
     "SELECT id FROM photos WHERE file_hash = $1",

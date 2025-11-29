@@ -7,10 +7,15 @@ const router = new Router();
 router.post("/upload", koaMulter("file"), async (ctx) => {
   const file = ctx.file;
 
-  const result = await processImage({
-    filePath: file.path,
-    originalName: file.originalname,
-  });
+  const parseFaces = ctx.req.body?.scanFaces;
+
+  const result = await processImage(
+    {
+      filePath: file.path,
+      originalName: file.originalname,
+    },
+    parseFaces,
+  );
 
   await ctx.render("upload-result", {
     fileName: file.originalname,
