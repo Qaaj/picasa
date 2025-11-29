@@ -1,0 +1,18 @@
+version: "3.9"
+
+services:
+  passthru:
+    build: ./backend
+    container_name: passthru-dev
+    environment:
+      FACE_SERVER_URL: http://face:10002
+    ports:
+      - "7777:7777"
+    depends_on:
+      - face
+
+  face:
+    image: tae898/face-detection-recognition:latest
+    container_name: face-server
+    ports:
+      - "10002:10002"

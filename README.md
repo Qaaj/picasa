@@ -1,2 +1,0 @@
-# picasa
-fuck google
