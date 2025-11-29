@@ -3,7 +3,11 @@ import sharp from "sharp";
 import fs from "fs/promises";
 import path from "path";
 
-import { insertFacesIntoDB, markPhotoScanned } from "../db/faces.js";
+import {
+  insertFacesIntoDB,
+  markPhotoScanned,
+  checkForSimilarFaces,
+} from "../db/faces.js";
 import "dotenv/config";
 
 // Ensure debug-folder exists
@@ -79,8 +83,9 @@ export async function processFaces(buffer, hash) {
 
   await debugSaveCrops(buffer, json.faces, hash, debugDir);
   // 3. Insert each detected face into DB
-  await insertFacesIntoDB(buffer, hash, faces);
 
+  await insertFacesIntoDB(buffer, hash, faces);
+  await checkForSimilarFaces(faces);
   // 4. Mark photo as scanned with version
   await markPhotoScanned(hash);
 

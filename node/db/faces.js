@@ -8,7 +8,6 @@ export async function insertFacesIntoDB(originalBuffer, hash, faces) {
   const meta = await image.metadata();
 
   for (let i = 0; i < faces.length; i++) {
-    console.log(faces[i]);
     const face = faces[i];
     const [x1, y1, x2, y2] = face.bbox;
 
@@ -54,4 +53,89 @@ export async function markPhotoScanned(hash) {
     FACE_VERSION,
     hash,
   ]);
+}
+
+// Parse "[0.11, -0.22, ...]" → [0.11, -0.22, ...]
+function parseVec(str) {
+  const inner = str.slice(1, -1);
+  return inner.split(",").map(Number);
+}
+
+function dot(a, b) {
+  let s = 0;
+  for (let i = 0; i < a.length; i++) s += a[i] * b[i];
+  return s;
+}
+
+function norm(v) {
+  return Math.sqrt(dot(v, v));
+}
+
+function cosineDistance(a, b) {
+  const na = norm(a);
+  const nb = norm(b);
+  const cosSim = dot(a, b) / (na * nb);
+  return 1 - cosSim;
+}
+
+export async function checkForSimilarFaces(newFaces) {
+  if (!newFaces || newFaces.length === 0) return;
+
+  // 1. Load all golden vectors
+  const peopleRes = await pool.query(`
+     SELECT id, name, identity_vector::text AS emb
+     FROM people
+     WHERE identity_vector IS NOT NULL
+   `);
+
+  const people = peopleRes.rows.map((r) => ({
+    id: r.id,
+    name: r.name,
+    vec: parseVec(r.emb),
+  }));
+
+  if (people.length === 0) {
+    console.log("No people with golden vectors available.");
+    return;
+  }
+
+  // 2. Convert new faces' embeddings (already in memory)
+  const FACE_THRESHOLD = 0.25;
+
+  for (const face of newFaces) {
+    // face must contain: { id, embedding }
+    if (!face.normed_embedding) continue;
+
+    const faceVec =
+      typeof face.normed_embedding === "string"
+        ? parseVec(face.normed_embedding)
+        : face.normed_embedding;
+
+    let bestMatch = null;
+
+    for (const person of people) {
+      const dist = cosineDistance(faceVec, person.vec);
+      if (!bestMatch || dist < bestMatch.dist) {
+        bestMatch = { person_id: person.id, dist, name: person.name };
+      }
+    }
+
+    if (!bestMatch) continue;
+
+    // Auto-assign if below threshold
+    if (bestMatch.dist < FACE_THRESHOLD) {
+      console.log(
+        `Auto-assign face ${face.id} → person ${bestMatch.name} (dist=${bestMatch.dist.toFixed(4)})`,
+      );
+
+      // await pool.query(`UPDATE faces SET person_id = $1 WHERE id = $2`, [
+      //   bestMatch.person_id,
+      //   face.id,
+      // ]);
+    } else {
+      console.log(
+        `Face ${face.id} did NOT match. Best = ${bestMatch.dist.toFixed(4)}`,
+      );
+    }
+  }
 }

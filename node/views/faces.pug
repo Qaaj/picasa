@@ -1,0 +1,90 @@
+extends layout
+
+block content
+  h1(class="text-2xl font-bold mb-4") Faces
+
+  // Top bar
+  .flex.items-center.gap-3.mb-4
+    input#personName(
+      type="text"
+      placeholder="Enter name…"
+      class="border border-gray-300 rounded px-3 py-2 w-64 focus:outline-none focus:ring-2 focus:ring-blue-500"
+    )
+    button#tagBtn(
+      class="bg-blue-600 hover:bg-blue-700 text-white font-semibold px-4 py-2 rounded"
+    ) Tag
+
+  hr(class="my-6 border-gray-300")
+
+  // Faces grid
+  .faces-grid(
+    class="grid grid-cols-2 sm:grid-cols-3 md:grid-cols-4 lg:grid-cols-5 xl:grid-cols-6 gap-4"
+  )
+    each face in faces
+      .face-box(
+        data-id=face.id
+        class="border border-gray-300 rounded-lg p-2 cursor-pointer hover:bg-gray-50 transition"
+      )
+        img(
+          src=`data:image/jpeg;base64,${face.crop_base64}`
+          alt="face"
+          class="w-full h-24 object-cover rounded-md"
+        )
+
+        if face.person_name
+          div(class="text-center text-sm mt-2 font-medium") #{face.person_name}
+        else
+          div(class="text-center text-sm mt-2 text-gray-500") unassigned
+
+  // Toggle logic
+  script.
+    const selected = new Set();
+
+    document.querySelectorAll('.face-box').forEach(box => {
+      box.addEventListener('click', () => {
+        const id = box.dataset.id;
+        if (selected.has(id)) {
+          selected.delete(id);
+          box.classList.remove('ring-2', 'ring-blue-500', 'bg-blue-50');
+        } else {
+          selected.add(id);
+          box.classList.add('ring-2', 'ring-blue-500', 'bg-blue-50');
+        }
+      });
+    });
+
+    document.getElementById('tagBtn').addEventListener('click', () => {
+      const name = document.getElementById('personName').value.trim();
+      if (!name) {
+        alert("Enter a name first.");
+        return;
+      }
+
+      console.log("Would TAG:", name);
+      console.log("Faces:", Array.from(selected));
+      // backend POST will come later
+    });
+
+    document.getElementById('tagBtn').addEventListener('click', async () => {
+      const name = document.getElementById('personName').value.trim();
+      if (!name) {
+        alert("Enter a name first.");
+        return;
+      }
+
+      const ids = Array.from(selected);
+
+      const res = await fetch("/faces/tag", {
+        method: "POST",
+        headers: { "Content-Type": "application/json" },
+        body: JSON.stringify({ name, faceIds: ids })
+      });
+
+      const out = await res.json();
+      console.log(out);
+
+      if (out.success) {
+        alert("Tagged successfully!");
+        window.location.reload(); // refresh to show updated labels
+      }
+    });

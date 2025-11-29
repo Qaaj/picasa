@@ -6,7 +6,8 @@ import bodyParser from "koa-bodyparser";
 import views from "koa-views";
 import path from "path";
 import { fileURLToPath } from "url";
-
+import facesRouter from "./routes/faces.js";
+import facesTagRouter from "./routes/faces-tag.js";
 import uploadRoutes from "./routes/upload.js";
 import dirRouter from "./routes/dir.js";
 import statusRouter from "./routes/scan-status.js";
@@ -40,6 +41,8 @@ router.get("/browse", async (ctx) => {
 app.use(dashboardRouter.routes());
 app.use(uploadRoutes.routes()).use(uploadRoutes.allowedMethods());
 app.use(dirRouter.routes()).use(dirRouter.allowedMethods());
+app.use(facesRouter.routes()).use(facesRouter.allowedMethods());
+app.use(facesTagRouter.routes()).use(facesTagRouter.allowedMethods());
 app.use(statusRouter.routes()).use(statusRouter.allowedMethods());
 app.use(scanFolder.routes()).use(scanFolder.allowedMethods());
 app.use(photoDetail.routes()).use(photoDetail.allowedMethods());
