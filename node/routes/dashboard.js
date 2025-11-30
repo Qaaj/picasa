@@ -3,7 +3,12 @@ import { pool } from "../db/index.js";
 
 const router = new Router();
 
-router.get("/", async (ctx) => {
+// Redirect root to dashboard with page=1
+router.get("/", (ctx) => {
+  ctx.redirect("/dashboard?page=1");
+});
+
+router.get("/dashboard", async (ctx) => {
   const page = parseInt(ctx.query.page || "1", 10);
   const pageSize = 100; // adjust if needed
   const offset = (page - 1) * pageSize;

@@ -16,7 +16,7 @@ import { processFaces } from "./processFaces.js";
 
 export async function processImage(
   { filePath, originalName = null, fileBuffer = null },
-  scanFaces = false,
+  scanFaces = true,
 ) {
   const stats = fs.statSync(filePath);
 

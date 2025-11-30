@@ -15,6 +15,7 @@ import statusRouter from "./routes/scan-status.js";
 import scanFolder from "./routes/scan.js";
 import dashboardRouter from "./routes/dashboard.js";
 import photoDetail from "./routes/photo.js";
+import tagsRouter from "./routes/tags.js";
 import peopleRouter from "./routes/people.js";
 
 const __filename = fileURLToPath(import.meta.url);
@@ -40,7 +41,7 @@ router.get("/browse", async (ctx) => {
   await ctx.render("dir-browser", { active: "browser" });
 });
 
-app.use(dashboardRouter.routes());
+app.use(dashboardRouter.routes()).use(dashboardRouter.allowedMethods());
 app.use(uploadRoutes.routes()).use(uploadRoutes.allowedMethods());
 app.use(dirRouter.routes()).use(dirRouter.allowedMethods());
 app.use(facesRouter.routes()).use(facesRouter.allowedMethods());
@@ -50,6 +51,7 @@ app.use(scanFolder.routes()).use(scanFolder.allowedMethods());
 app.use(photoDetail.routes()).use(photoDetail.allowedMethods());
 app.use(clustersRouter.routes()).use(clustersRouter.allowedMethods());
 app.use(peopleRouter.routes()).use(peopleRouter.allowedMethods());
+app.use(tagsRouter.routes()).use(tagsRouter.allowedMethods());
 
 app.use(router.routes()).use(router.allowedMethods());
 

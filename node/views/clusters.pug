@@ -1,27 +1,165 @@
 extends layout
 
 block content
-    .max-w-4xl.mx-auto.p-6
+    .max-w.mx-auto.p-6
         h1.text-2xl.font-bold.mb-6 Unknown Face Clusters
+
+        // Search + autocomplete
+        .mb-4
+            input#clusterSearch(
+                type="text"
+                placeholder="Search or create person..."
+                class="w-full border rounded px-3 py-2"
+                autocomplete="off"
+            )
+            // Suggestions dropdown
+            ul#clusterSuggestions(class="absolute bg-white border rounded shadow hidden mt-1 w-80 z-10")
+            button#tagClustersBtn(class="bg-blue-600 hover:bg-blue-700 text-white font-semibold px-4 py-2 rounded mt-2") Tag Selected
+            button#ignoreSelectedBtn(class="bg-red-600 hover:bg-red-700 text-white font-semibold px-4 py-2 rounded ml-2") Ignore Selected
 
         if clusters.length === 0
             p.text-gray-500 No clusters found.
 
-        .grid(class="grid grid-cols-1 sm:grid-cols-2 md:grid-cols-3 gap-6")
-          each c in clusters
-              .border.rounded-lg.shadow.p-4.bg-white
-                  if c.sample_face
-                      img.w-full.rounded.mb-3(
-                          src=`data:image/jpeg;base64,${c.sample_face}`
-                      )
+        .grid(class="grid grid-cols-5 sm:grid-cols-6 md:grid-cols-6 gap-6")
+            each c in clusters
+                .selectable-cluster.relative.border.rounded-lg.shadow.p-4.bg-white.cursor-pointer(
+                    data-id=c.id
+                )
+                    button(
+                        class="absolute top-1 right-1 bg-red-600 text-white text-xs px-1 rounded ignore-single"
+                        data-id=c.id
+                        onclick="ignoreCluster(event, this.dataset.id)"
+                    ) X
+                    if c.sample_face
+                        img.w-full.rounded.mb-3(
+                            src=`data:image/jpeg;base64,${c.sample_face}`
+                        )
+                    p.text-sm.text-gray-600.mb-2 Faces in cluster: #{c.face_count}
+                    div.hidden #{c.face_count}
 
-                  p.text-sm.text-gray-600.mb-2
-                      | Faces in cluster: #{c.face_count}
+    script.
+        const selectedClusters = new Set();
 
-                  form(method="POST", action=`/clusters/${c.id}/promote`)
-                      input(type="text", name="name", placeholder="Enter name"
-                          class="w-full border rounded px-2 py-1 mb-2"
-                          required)
+        document.querySelectorAll('.selectable-cluster').forEach(el => {
+          el.addEventListener('click', () => {
+            const id = el.dataset.id;
+            if (selectedClusters.has(id)) {
+              selectedClusters.delete(id);
+              el.classList.remove('ring','ring-blue-500','bg-blue-50');
+            } else {
+              selectedClusters.add(id);
+              el.classList.add('ring','ring-blue-500','bg-blue-50');
+            }
+          });
+        });
 
-                      button(type="submit", class="bg-blue-600 text-white px-3 py-1 rounded hover:bg-blue-700")
-                          | Promote to Person
+        // Autocomplete for clusterSearch input
+        const searchInput = document.getElementById('clusterSearch');
+        const suggestions = document.getElementById('clusterSuggestions');
+
+        let debounceTimeout = null;
+
+        searchInput.addEventListener('input', () => {
+            const query = searchInput.value.trim();
+            if (debounceTimeout) clearTimeout(debounceTimeout);
+
+            if (!query) {
+                suggestions.innerHTML = '';
+                suggestions.classList.add('hidden');
+                return;
+            }
+
+            debounceTimeout = setTimeout(() => {
+                fetch(`/api/people/search?name=${encodeURIComponent(query)}`)
+                    .then(res => res.json())
+                    .then(data => {
+                        suggestions.innerHTML = '';
+
+                        // Existing matches first
+                        if (data.length > 0) {
+                            data.forEach(person => {
+                                const li = document.createElement('li');
+                                li.textContent = person.name;
+                                li.className = 'px-3 py-2 cursor-pointer hover:bg-blue-100';
+                                li.addEventListener('click', () => {
+                                    searchInput.value = person.name;
+                                    searchInput.dataset.personId = person.id;
+                                    suggestions.innerHTML = '';
+                                    suggestions.classList.add('hidden');
+                                });
+                                suggestions.appendChild(li);
+                            });
+                        }
+
+                        // Always show “Create new”
+                        const liNew = document.createElement('li');
+                        liNew.className = 'px-3 py-2 cursor-pointer hover:bg-blue-100 text-blue-600';
+                        liNew.textContent = `➕ Create new: ${query}`;
+                        liNew.addEventListener('click', () => {
+                            searchInput.dataset.personId = "";
+                            suggestions.innerHTML = '';
+                            suggestions.classList.add('hidden');
+                        });
+                        suggestions.appendChild(liNew);
+
+                        // Finally show dropdown
+                        suggestions.classList.remove('hidden');
+                    })
+                    .catch(() => {
+                        suggestions.innerHTML = '';
+                        suggestions.classList.add('hidden');
+                    });
+            }, 300);
+        });
+
+        // Hide suggestions when clicking outside
+        document.addEventListener('click', (e) => {
+            if (!searchInput.contains(e.target) && !suggestions.contains(e.target)) {
+                suggestions.innerHTML = '';
+                suggestions.classList.add('hidden');
+            }
+        });
+
+        document.getElementById('tagClustersBtn').addEventListener('click', async () => {
+          const name = searchInput.value.trim();
+          const personId = searchInput.dataset.personId || null;
+          if (!name) { alert("Enter a name first."); return; }
+          const clusterIds = Array.from(selectedClusters);
+          const res = await fetch("/clusters/promote", {
+            method:"POST",
+            headers:{ "Content-Type":"application/json" },
+            body: JSON.stringify({ name, personId, clusterIds })
+          });
+           window.location.reload();
+
+        });
+
+        document.getElementById('ignoreSelectedBtn').addEventListener('click', async () => {
+          const clusterIds = Array.from(selectedClusters);
+          if (clusterIds.length === 0) {
+            alert("Select at least one cluster.");
+            return;
+          }
+          const res = await fetch("/clusters/ignore", {
+            method: "POST",
+            headers: { "Content-Type": "application/json" },
+            body: JSON.stringify({ clusterIds })
+          });
+          const out = await res.json();
+          if (out.success) window.location.reload();
+        });
+
+        function ignoreCluster(e, id) {
+          e.stopPropagation();
+          fetch("/clusters/ignore", {
+            method: "POST",
+            headers: { "Content-Type": "application/json" },
+            body: JSON.stringify({ clusterIds: [id] })
+          }).then(res => res.json()).then(out => {
+            if (out.success) {
+              const el = document.querySelector(`.selectable-cluster[data-id='${id}']`);
+              if (el) el.remove();
+              window.location.reload();
+            }
+          });
+        }

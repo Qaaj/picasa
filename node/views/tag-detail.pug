@@ -1,0 +1,18 @@
+extends layout
+
+block content
+    a(href="/tags", class="text-blue-600 block mb-4") ← Back to search
+
+    h1(class="text-2xl font-semibold mb-4") Photos tagged "#{tag}"
+
+    if photos.length === 0
+        p(class="text-gray-500") No photos found for this tag.
+    else
+        div(class="grid grid-cols-2 sm:grid-cols-3 md:grid-cols-4 lg:grid-cols-5 gap-4")
+          each p in photos
+              a(href=`/photo/${p.id}`, class="block")
+                  img(
+                      src=p.thumb_base64
+                      alt=p.file_name
+                      class="w-full rounded shadow hover:opacity-80"
+                  )

@@ -18,6 +18,13 @@ block content
     button#tagBtn(
       class="bg-blue-600 hover:bg-blue-700 text-white font-semibold px-4 py-2 rounded"
     ) Tag
+    button#ignoreBtn(
+      class="bg-red-600 hover:bg-red-700 text-white font-semibold px-4 py-2 rounded"
+    ) Ignore
+
+  .flex.items-center.gap-2.mb-2
+    input#showUnassigned(type="checkbox" class="w-4 h-4" checked="true")
+    label(for="showUnassigned") Show only unassigned
 
   hr(class="my-6 border-gray-300")
 
@@ -28,12 +35,16 @@ block content
     each face in faces
       .face-box(
         data-id=face.id
-        class="border border-gray-300 rounded-lg p-2 cursor-pointer hover:bg-gray-50 transition"
+        class="relative border border-gray-300 rounded-lg p-2 cursor-pointer hover:bg-gray-50 transition"
       )
+        button(
+          class="absolute top-1 right-1 bg-red-600 text-white text-xs px-1 rounded ignore-single"
+          data-id=face.id
+        ) X
         img(
           src=`data:image/jpeg;base64,${face.crop_base64}`
           alt="face"
-          class="w-full h-24 object-cover rounded-md"
+          class="w-full h-40 object-cover rounded-md"
         )
 
         if face.person_name
@@ -41,8 +52,40 @@ block content
         else
           div(class="text-center text-sm mt-2 text-gray-500") unassigned
 
+  // Pagination
+  if totalPages > 1
+    .flex.justify-center.items-center.gap-4.mt-8.mb-12
+      if page > 1
+        a(
+          href=`/faces?page=${page - 1}`
+          class="px-4 py-2 bg-gray-200 hover:bg-gray-300 rounded"
+        ) ← Prev
+
+      span.text-gray-600 Page #{page} / #{totalPages}
+
+      if page < totalPages
+        a(
+          href=`/faces?page=${page + 1}`
+          class="px-4 py-2 bg-gray-200 hover:bg-gray-300 rounded"
+        ) Next →
+
   // Toggle logic
   script.
+    const toggle = document.getElementById('showUnassigned');
+
+    document.querySelectorAll('.face-box').forEach(box => {
+      const assigned = box.querySelector('div').textContent.trim() !== 'unassigned';
+      if(assigned) box.classList.add('hidden');
+    });
+
+    toggle.addEventListener('change', () => {
+      document.querySelectorAll('.face-box').forEach(box => {
+        const assigned = box.querySelector('div').textContent.trim() !== 'unassigned';
+        if (toggle.checked && assigned) box.classList.add('hidden');
+        else box.classList.remove('hidden');
+      });
+    });
+
     const selected = new Set();
 
     document.querySelectorAll('.face-box').forEach(box => {
@@ -132,7 +175,42 @@ block content
       console.log(out);
 
       if (out.success) {
-        alert("Tagged successfully!");
+        // alert("Tagged successfully!");
         window.location.reload(); // refresh to show updated labels
       }
+    });
+
+    document.getElementById('ignoreBtn').addEventListener('click', async () => {
+      const ids = Array.from(selected);
+      if (ids.length === 0) {
+        alert("Select at least one face to ignore.");
+        return;
+      }
+
+      const res = await fetch("/faces/ignore", {
+        method: "POST",
+        headers: { "Content-Type": "application/json" },
+        body: JSON.stringify({ faceIds: ids })
+      });
+
+      const out = await res.json();
+      console.log(out);
+
+      if (out.success) {
+        window.location.reload();
+      }
+    });
+
+    document.querySelectorAll('.ignore-single').forEach(btn => {
+      btn.addEventListener('click', async (e) => {
+        e.stopPropagation();
+        const id = btn.dataset.id;
+        const res = await fetch("/faces/ignore", {
+          method: "POST",
+          headers: { "Content-Type": "application/json" },
+          body: JSON.stringify({ faceIds: [id] })
+        });
+        const out = await res.json();
+        if(out.success) window.location.reload();
+      });
     });

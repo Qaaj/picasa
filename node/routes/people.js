@@ -7,9 +7,18 @@ const router = new Router();
 // List all people
 router.get("/people", async (ctx) => {
   const res = await pool.query(`
-    SELECT id, name
-    FROM people
-    ORDER BY name;
+    SELECT
+      p.id,
+      p.name,
+      (
+        SELECT f.crop_base64
+        FROM faces f
+        WHERE f.person_id = p.id
+        ORDER BY f.id DESC
+        LIMIT 1
+      ) AS thumb_base64
+    FROM people p
+    ORDER BY p.name;
   `);
 
   await ctx.render("people", {

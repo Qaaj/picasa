@@ -1,0 +1,134 @@
+extends layout
+
+block content
+    a(href="/", class="text-blue-600 block mb-4") ← Back
+
+    h1(class="text-3xl font-bold mb-6") Search Tags
+
+    .relative
+        input#tagSearch(
+            type="text"
+            placeholder="Search tags…"
+            autocomplete="off"
+            class="w-full p-3 border rounded-lg text-lg"
+        )
+
+        // Dropdown container
+        ul#tagSuggestions(
+            class="absolute left-0 right-0 bg-white border rounded-lg shadow mt-1 hidden max-h-60 overflow-y-auto z-20"
+        )
+
+    div(class="selected-tags mt-4 flex flex-wrap gap-2")
+
+    div(class="photos-grid mt-6 grid grid-cols-2 sm:grid-cols-3 md:grid-cols-4 gap-4")
+
+    script.
+      const input = document.getElementById('tagSearch');
+      const dropdown = document.getElementById('tagSuggestions');
+      let timeout = null;
+      let selected = [];
+      const tagContainer = document.querySelector('.selected-tags');
+      const photoGrid = document.querySelector('.photos-grid');
+
+      input.addEventListener('input', () => {
+        const q = input.value.trim();
+        if (!q) {
+          dropdown.classList.add('hidden');
+          dropdown.innerHTML = "";
+          return;
+        }
+
+        clearTimeout(timeout);
+        timeout = setTimeout(async () => {
+          const res = await fetch('/tags/search', {
+            method: 'POST',
+            headers: { 'Content-Type': 'application/json' },
+            body: JSON.stringify({ query: q })
+          });
+          const data = await res.json();
+          const tags = data.tags || [];
+
+          dropdown.innerHTML = "";
+
+          if (tags.length === 0) {
+            dropdown.classList.add('hidden');
+            return;
+          }
+
+          for (const tag of tags) {
+            const li = document.createElement('li');
+            li.className = "px-3 py-2 hover:bg-gray-100 cursor-pointer";
+            li.textContent = tag;
+
+            li.addEventListener('click', () => {
+              addTag(tag);
+            });
+
+            dropdown.appendChild(li);
+          }
+
+          dropdown.classList.remove('hidden');
+        }, 150);
+      });
+
+      function addTag(tag){
+        if(selected.includes(tag)) return;
+        selected.push(tag);
+
+        const pill = document.createElement('div');
+        pill.className = "bg-blue-100 text-blue-700 px-3 py-1 rounded-full flex items-center gap-2";
+        pill.textContent = tag;
+
+        const x = document.createElement('span');
+        x.textContent = "×";
+        x.className = "cursor-pointer font-bold";
+        x.onclick = () => {
+          selected = selected.filter(t => t !== tag);
+          pill.remove();
+          updatePhotos();
+        };
+
+        pill.appendChild(x);
+        tagContainer.appendChild(pill);
+
+        updatePhotos();
+      }
+
+      async function updatePhotos(){
+        if(selected.length === 0){
+          photoGrid.innerHTML = "";
+          return;
+        }
+        const res = await fetch('/tags/filter', {
+          method:'POST',
+          headers:{'Content-Type':'application/json'},
+          body: JSON.stringify({ tags: selected })
+        });
+        const data = await res.json();
+        const photos = data.photos || [];
+        photoGrid.innerHTML = "";
+        photos.forEach(p=>{
+          const a = document.createElement('a');
+          a.href = `/photo/${p.id}`;
+          const img = document.createElement('img');
+          img.src = p.thumb_base64;
+          img.className = "w-full h-40 object-cover rounded";
+          a.appendChild(img);
+          photoGrid.appendChild(a);
+        });
+      }
+
+      // Hide when clicking outside
+      document.addEventListener('click', (e) => {
+        if (!e.target.closest('.relative')) {
+          dropdown.classList.add('hidden');
+        }
+      });
+
+      // Enter key → add tag
+      input.addEventListener('keydown', (e) => {
+        if (e.key === 'Enter') {
+          const tag = input.value.trim();
+          if (tag) addTag(tag);
+        }
+      });
