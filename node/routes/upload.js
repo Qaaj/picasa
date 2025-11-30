@@ -17,15 +17,7 @@ router.post("/upload", koaMulter("file"), async (ctx) => {
     parseFaces,
   );
 
-  await ctx.render("upload-result", {
-    fileName: file.originalname,
-    isDuplicate: result.skipped,
-    id: result.id,
-    exif: result.exifRaw || null,
-    annotation: result.annotation || null,
-    thumb: result.thumb || null,
-    active: "upload",
-  });
+  ctx.redirect(`/photo/${result.id}`);
 });
 
 export default router;

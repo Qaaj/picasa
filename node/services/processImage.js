@@ -4,6 +4,7 @@ import crypto from "crypto";
 import exifr from "exifr";
 
 import { annotateImage } from "../scripts/lm.js";
+// import { annotateImage } from "../scripts/ollama.js";
 import { embedText } from "../services/textEmbed.js";
 import { extractStructuredExif } from "../helpers/exif.js";
 import { buildTextEmbeddingInput } from "../helpers/text-embedding-input.js";

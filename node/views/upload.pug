@@ -2,7 +2,7 @@ extends layout
 
 block content
   .max-w-xl.mx-auto.mt-20.p-10.bg-white.rounded.shadow
-    h1.text-2xl.font-bold.mb-4 Upload Test
+    h1.text-2xl.font-bold.mb-4 Upload
 
     form#uploadForm(action="/upload" method="post" enctype="multipart/form-data")
         .field
@@ -10,7 +10,7 @@ block content
             input#fileInput(type="file" name="file" class="hidden")
         .field
             label(for="scanFaces")
-            input(type="checkbox" name="scanFaces" id="scanFaces" value="true")
+            input(type="checkbox" name="scanFaces" id="scanFaces" checked="true" value="true")
             |  Scan faces
 
             #dropzone.border-2.border-dashed.border-gray-400.p-20.text-center.text-gray-600.rounded.cursor-pointer

@@ -1,0 +1,16 @@
+extends layout
+
+block content
+    .max-w-5xl.mx-auto.p-6
+
+        a(href="/people", class="text-blue-600 block mb-4") ← Back to People
+
+        h1(class="text-2xl font-bold mb-4") #{person.name}
+
+        if faces.length === 0
+            p(class="text-gray-500") No photos for this person.
+
+        .grid(class="grid grid-cols-2 sm:grid-cols-3 md:grid-cols-4 gap-4")
+          each f in faces
+              a(href=`/photo/${f.photo_id}`, class="block")
+                  img(class="w-full rounded shadow", src=`data:image/jpeg;base64,${f.crop_base64}`)

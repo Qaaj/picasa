@@ -4,12 +4,17 @@ block content
   h1(class="text-2xl font-bold mb-4") Faces
 
   // Top bar
-  .flex.items-center.gap-3.mb-4
+  .flex.items-center.gap-3.mb-4.relative
     input#personName(
       type="text"
-      placeholder="Enter name…"
+        placeholder="Type a name..."
+        autocomplete="off"
+        autocorrect="off"
+        autocapitalize="off"
+        spellcheck="false"
       class="border border-gray-300 rounded px-3 py-2 w-64 focus:outline-none focus:ring-2 focus:ring-blue-500"
     )
+    ul#searchResults(class="absolute left-0 top-full border border-gray-300 bg-white rounded w-64 mt-1 shadow hidden z-20")
     button#tagBtn(
       class="bg-blue-600 hover:bg-blue-700 text-white font-semibold px-4 py-2 rounded"
     ) Tag
@@ -53,8 +58,49 @@ block content
       });
     });
 
+    const input = document.getElementById('personName');
+    const results = document.getElementById('searchResults');
+
+    input.addEventListener('input', async () => {
+      const q = input.value.trim();
+      if (!q) {
+        results.classList.add('hidden');
+        return;
+      }
+
+      const r = await fetch(`/api/people/search?name=${encodeURIComponent(q)}`);
+      const people = await r.json();
+
+      results.innerHTML = "";
+
+      people.forEach(p => {
+        const li = document.createElement("li");
+        li.className = "p-2 hover:bg-gray-100 cursor-pointer";
+        li.textContent = `${p.name} (ID ${p.id})`;
+        li.onclick = () => {
+          input.value = p.name;
+          input.dataset.personId = p.id;
+          results.classList.add("hidden");
+        };
+        results.appendChild(li);
+      });
+
+      const liNew = document.createElement("li");
+      liNew.className = "p-2 hover:bg-gray-100 cursor-pointer text-blue-600";
+      liNew.textContent = `➕ Create new: ${q}`;
+      liNew.onclick = () => {
+        input.dataset.personId = "";
+        results.classList.add("hidden");
+      };
+      results.appendChild(liNew);
+
+      results.classList.remove("hidden");
+    });
+
     document.getElementById('tagBtn').addEventListener('click', () => {
-      const name = document.getElementById('personName').value.trim();
+      const inputEl = document.getElementById('personName');
+      const name = inputEl.value.trim();
+      const personId = inputEl.dataset.personId || null;
       if (!name) {
         alert("Enter a name first.");
         return;
@@ -66,7 +112,9 @@ block content
     });
 
     document.getElementById('tagBtn').addEventListener('click', async () => {
-      const name = document.getElementById('personName').value.trim();
+      const inputEl = document.getElementById('personName');
+      const name = inputEl.value.trim();
+      const personId = inputEl.dataset.personId || null;
       if (!name) {
         alert("Enter a name first.");
         return;
@@ -77,7 +125,7 @@ block content
       const res = await fetch("/faces/tag", {
         method: "POST",
         headers: { "Content-Type": "application/json" },
-        body: JSON.stringify({ name, faceIds: ids })
+        body: JSON.stringify({ name, personId, faceIds: ids })
       });
 
       const out = await res.json();

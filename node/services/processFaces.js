@@ -8,6 +8,7 @@ import {
   markPhotoScanned,
   checkForSimilarFaces,
 } from "../db/faces.js";
+import { assignFacesToClusters } from "../db/faceClusters.js";
 import "dotenv/config";
 
 // Ensure debug-folder exists
@@ -84,8 +85,13 @@ export async function processFaces(buffer, hash) {
   await debugSaveCrops(buffer, json.faces, hash, debugDir);
   // 3. Insert each detected face into DB
 
-  await insertFacesIntoDB(buffer, hash, faces);
-  await checkForSimilarFaces(faces);
+  // Insert into DB → returns array of inserted face IDs
+  const faceIds = await insertFacesIntoDB(buffer, hash, faces);
+
+  // Run clustering auto‑assignment on the actual DB IDs
+  await checkForSimilarFaces(faceIds);
+  // Auto-cluster new faces
+  await assignFacesToClusters(faceIds);
   // 4. Mark photo as scanned with version
   await markPhotoScanned(hash);
 

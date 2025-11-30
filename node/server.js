@@ -10,10 +10,12 @@ import facesRouter from "./routes/faces.js";
 import facesTagRouter from "./routes/faces-tag.js";
 import uploadRoutes from "./routes/upload.js";
 import dirRouter from "./routes/dir.js";
+import clustersRouter from "./routes/clusters.js";
 import statusRouter from "./routes/scan-status.js";
 import scanFolder from "./routes/scan.js";
 import dashboardRouter from "./routes/dashboard.js";
 import photoDetail from "./routes/photo.js";
+import peopleRouter from "./routes/people.js";
 
 const __filename = fileURLToPath(import.meta.url);
 const __dirname = path.dirname(__filename);
@@ -46,6 +48,8 @@ app.use(facesTagRouter.routes()).use(facesTagRouter.allowedMethods());
 app.use(statusRouter.routes()).use(statusRouter.allowedMethods());
 app.use(scanFolder.routes()).use(scanFolder.allowedMethods());
 app.use(photoDetail.routes()).use(photoDetail.allowedMethods());
+app.use(clustersRouter.routes()).use(clustersRouter.allowedMethods());
+app.use(peopleRouter.routes()).use(peopleRouter.allowedMethods());
 
 app.use(router.routes()).use(router.allowedMethods());
 

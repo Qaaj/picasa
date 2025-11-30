@@ -40,6 +40,20 @@ html
                 : "text-gray-700 hover:text-blue-600")
             ) Faces
 
+            a(
+            href="/clusters"
+            class=(active === 'clusters'
+                ? "text-blue-600 font-semibold"
+                : "text-gray-700 hover:text-blue-600")
+            ) Clusters
+
+            a(
+            href="/people"
+            class=(active === 'people'
+                ? "text-blue-600 font-semibold"
+                : "text-gray-700 hover:text-blue-600")
+            ) People
+
 
     main.max-w-7xl.mx-auto.px-6.py-8
       block content
