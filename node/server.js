@@ -10,6 +10,7 @@ import facesRouter from "./routes/faces.js";
 import facesTagRouter from "./routes/faces-tag.js";
 import uploadRoutes from "./routes/upload.js";
 import dirRouter from "./routes/dir.js";
+import mapRouter from './routes/map.js'
 import clustersRouter from "./routes/clusters.js";
 import statusRouter from "./routes/scan-status.js";
 import scanFolder from "./routes/scan.js";
@@ -42,6 +43,7 @@ router.get("/browse", async (ctx) => {
 });
 
 app.use(dashboardRouter.routes()).use(dashboardRouter.allowedMethods());
+app.use(mapRouter.routes()).use(mapRouter.allowedMethods());
 app.use(uploadRoutes.routes()).use(uploadRoutes.allowedMethods());
 app.use(dirRouter.routes()).use(dirRouter.allowedMethods());
 app.use(facesRouter.routes()).use(facesRouter.allowedMethods());

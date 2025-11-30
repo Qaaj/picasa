@@ -15,7 +15,21 @@ router.get("/photo/:id", async (ctx) => {
     ctx.throw(404, "Photo not found");
   }
 
-  await ctx.render("photo-detail", { photo: rows[0], active: "photo-detail", faces });
+  // Fetch 3 nearest neighbours based on embedding_text
+  const relRes = await pool.query(
+    `
+  SELECT id, file_name, thumb_base64
+  FROM photos
+  WHERE id <> $1
+  ORDER BY embedding_text <-> $2
+  LIMIT 3
+  `,
+    [id, rows[0].embedding_text]
+  );
+
+  const related = relRes.rows;
+
+  await ctx.render("photo-detail", { photo: rows[0], active: "photo-detail", faces, related });
 });
 
 
