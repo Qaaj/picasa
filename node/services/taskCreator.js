@@ -62,7 +62,11 @@ export async function createFolderImportTask(rootPath, { tags = [], recursive = 
     const insertValues = [];
     const placeholders = [];
 
-    itemPaths.forEach((p, idx) => {
+    const normalizedPaths = itemPaths.map(p =>
+      p.replace(/\\/g, "/").toLowerCase()
+    );
+
+    normalizedPaths.forEach((p, idx) => {
       insertValues.push(
         taskId,
         "file",
