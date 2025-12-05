@@ -25,7 +25,8 @@ export async function collectFilesRecursively(rootPath, recursive = true) {
     cwd: rootPath,
     absolute: true,
     onlyFiles: true,
-    followSymbolicLinks: false
+    followSymbolicLinks: false,
+    caseSensitiveMatch: false,
   });
 }
 
@@ -59,36 +60,46 @@ export async function createFolderImportTask(rootPath, { tags = [], recursive = 
 
     const taskId = taskRes.rows[0].id;
 
-    const insertValues = [];
-    const placeholders = [];
-
     const normalizedPaths = itemPaths.map(p =>
       p.replace(/\\/g, "/").toLowerCase()
     );
 
-    normalizedPaths.forEach((p, idx) => {
-      insertValues.push(
-        taskId,
-        "file",
-        p,      // target_id is the absolute file path (string)
-        "pending",
-        0,
-        null
-      );
-      const base = idx * 6;
-      placeholders.push(
-        `($${base + 1}, $${base + 2}, $${base + 3}, $${base + 4}, $${base + 5}, $${base + 6})`
-      );
-    });
+    // -----------------------------------
+    // Batched INSERT of task_items
+    // -----------------------------------
+    const batchSize = 500;
 
-    await client.query(
-      `
-      INSERT INTO task_items
-      (task_id, target_type, target_id, status, attempts, error)
-      VALUES ${placeholders.join(",")}
-    `,
-      insertValues
-    );
+    for (let i = 0; i < normalizedPaths.length; i += batchSize) {
+      const batch = normalizedPaths.slice(i, i + batchSize);
+
+      const insertValues = [];
+      const placeholders = [];
+
+      batch.forEach((p, idx) => {
+        insertValues.push(
+          taskId,
+          "file",
+          p,
+          "pending",
+          0,
+          null
+        );
+        const base = idx * 6;
+        placeholders.push(
+          `($${base + 1}, $${base + 2}, $${base + 3}, $${base + 4}, $${base + 5}, $${base + 6})`
+        );
+      });
+
+      await client.query(
+        `
+        INSERT INTO task_items
+          (task_id, target_type, target_id, status, attempts, error)
+        VALUES
+          ${placeholders.join(",")}
+        `,
+        insertValues
+      );
+    }
 
     await client.query("COMMIT");
 
