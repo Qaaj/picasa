@@ -72,4 +72,57 @@ router.get("/tags/:tag", async (ctx) => {
   });
 });
 
+// Mass-tag photos: merge new tags into annotation->'tags'
+router.post("/tags/mass-tag", async (ctx) => {
+  const { photoIds, tags } = ctx.request.body;
+
+  if (!Array.isArray(photoIds) || photoIds.length === 0) {
+    ctx.status = 400;
+    ctx.body = { error: "photoIds must be a non-empty array" };
+    return;
+  }
+
+  if (!Array.isArray(tags) || tags.length === 0) {
+    ctx.status = 400;
+    ctx.body = { error: "tags must be a non-empty array" };
+    return;
+  }
+
+  try {
+    // Update annotation.tags safely with jsonb merging + deduplication
+    const result = await pool.query(
+      `
+      UPDATE photos
+      SET annotation = jsonb_set(
+        annotation,
+        '{tags}',
+        (
+          SELECT jsonb_agg(DISTINCT t)
+          FROM (
+            SELECT jsonb_array_elements_text(
+              COALESCE(annotation->'tags', '[]'::jsonb)
+            ) AS t
+            UNION ALL
+            SELECT unnest($2::text[]) AS t
+          ) AS merged
+        )
+      )
+      WHERE id = ANY($1::int[])
+      RETURNING id;
+      `,
+      [photoIds, tags]
+    );
+
+    ctx.body = {
+      success: true,
+      updated: result.rows.length,
+      photoIds: result.rows.map((r) => r.id),
+    };
+  } catch (err) {
+    console.error("Mass tag error:", err);
+    ctx.status = 500;
+    ctx.body = { error: "Internal server error" };
+  }
+});
+
 export default router;

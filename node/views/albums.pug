@@ -1,0 +1,43 @@
+extends layout
+
+block content
+    .p-6.bg-white.shadow.mb-6
+        h1(class="text-2xl font-semibold") Albums
+        p(class="text-gray-500 mt-1") #{albums.length} total
+
+    // CREATE NEW ALBUM
+    .max-w-xl.mx-auto.bg-white.shadow.rounded-lg.p-4.mb-8
+        h2(class="text-lg font-semibold mb-3") Create New Album
+
+        form(action="/albums/create" method="POST" class="flex gap-3 items-center")
+            input(
+                type="text"
+                name="name"
+                placeholder="Album name…"
+                class="border border-gray-300 rounded px-3 py-2 flex-1 focus:outline-none focus:ring-2 focus:ring-blue-500"
+            )
+            button(
+                type="submit"
+                class="bg-blue-600 hover:bg-blue-700 text-white px-4 py-2 rounded font-medium"
+            ) Create
+
+    // ALBUM GRID
+    .max-w-6xl.mx-auto.px-4
+        if albums.length === 0
+            p(class="text-gray-500") No albums yet.
+        else
+            .grid(class="grid-cols-2 sm:grid-cols-3 md:grid-cols-4 lg:grid-cols-5 gap-6")
+              each a in albums
+                  a(href=`/albums/${a.id}` class="block bg-white shadow rounded-lg overflow-hidden hover:shadow-lg transition")
+                      if a.cover_thumb
+                          img(
+                              src=a.cover_thumb
+                              alt=a.name
+                              class="w-full h-40 object-cover"
+                          )
+                      else
+                          .flex.items-center.justify-center(class="w-full h-40 bg-gray-200 text-gray-500 text-sm")
+                              | No cover
+                      .p-3
+                          div(class="font-medium truncate") #{a.name}
+                          div(class="text-xs text-gray-500") #{a.photo_count} photos

@@ -1,0 +1,60 @@
+extends layout
+
+block content
+    a(href="/albums" class="text-blue-600 block mb-4") ← Back to albums
+
+    .p-6.bg-white.shadow.mb-6
+        h1(class="text-2xl font-semibold") #{album.name}
+        p(class="text-gray-500 mt-1") #{photos.length} photos
+
+        // ADD PHOTOS TO ALBUM
+        .mt-4
+            form(action="/albums/add" method="POST" class="flex gap-3 items-center")
+                input(type="hidden" name="albumId" value=album.id)
+                input(
+                    type="text"
+                    name="photoIds"
+                    placeholder="Comma-separated photo IDs"
+                    class="border border-gray-300 rounded px-3 py-2 flex-1 focus:outline-none focus:ring-2 focus:ring-blue-500"
+                )
+                button(
+                    type="submit"
+                    class="bg-blue-600 hover:bg-blue-700 text-white px-4 py-2 rounded font-medium"
+                ) Add Photos
+
+    // PHOTO GRID
+    .max-w-6xl.mx-auto.px-4
+        if photos.length === 0
+            p(class="text-gray-500") This album has no photos yet.
+        else
+            .grid(class="grid-cols-2 sm:grid-cols-3 md:grid-cols-4 lg:grid-cols-6 gap-4")
+              each p in photos
+                  .relative
+                      button(
+                          class="remove-btn absolute top-1 right-1 z-20 bg-red-600 hover:bg-red-700 text-white rounded-full w-6 h-6 flex items-center justify-center text-xs"
+                          onclick=`removePhoto(${album.id}, ${p.id})`
+                      ) ×
+
+                      a(href=`/photo/${p.id}` class="block bg-white shadow rounded-lg overflow-hidden hover:shadow-lg transition")
+                          img(
+                              src=p.thumb_base64
+                              alt=p.file_name
+                              class="w-full h-40 object-cover"
+                          )
+                          div(class="p-2 text-sm text-gray-700 truncate") #{p.file_name}
+
+    script.
+      async function removePhoto(albumId, photoId) {
+        const res = await fetch("/albums/remove", {
+          method: "POST",
+          headers: {"Content-Type": "application/json"},
+          body: JSON.stringify({
+            albumId,
+            photoIds: [photoId]
+          })
+        });
+
+        const out = await res.json();
+        if (out.success) location.reload();
+        else alert("Failed to remove photo.");
+      }

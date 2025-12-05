@@ -1,0 +1,80 @@
+extends layout
+
+block content
+    .p-6.bg-white.shadow.mb-6
+        h1.text-2xl.font-bold Folder
+        p.text-gray-500.mt-1 #{count} photos
+        p.text-gray-400.text-sm #{folderPath}
+
+    .max-w-7xl.mx-auto.px-4
+
+        // Bulk buttons
+        .flex.gap-4.mb-6
+            button#tagAll(
+                class="px-4 py-2 bg-blue-600 text-white rounded hover:bg-blue-700"
+            ) Add Tags
+            button#locAll(
+                class="px-4 py-2 bg-green-600 text-white rounded hover:bg-green-700"
+            ) Add Location
+            button#albumAll(
+                class="px-4 py-2 bg-purple-600 text-white rounded hover:bg-purple-700"
+            ) Promote to Album
+
+        // Grid
+        .grid(class="grid-cols-2 sm:grid-cols-3 md:grid-cols-4 lg:grid-cols-6 gap-4")
+          each p in photos
+              a(
+                  href=`/photo/${p.id}`
+                  class="block bg-white shadow rounded overflow-hidden hover:shadow-lg"
+              )
+                  img(src=p.thumb_base64 alt=p.file_name class="w-full h-40 object-cover")
+                  div(class="p-2 text-sm text-gray-700 truncate") #{p.file_name}
+
+        // JS
+        script.
+          const photoIds = !{JSON.stringify(photos.map(p => p.id))};
+
+          document.getElementById("tagAll").onclick = async () => {
+            const tags = prompt("Enter comma-separated tags:");
+            if (!tags) return;
+
+            const res = await fetch("/tags/mass-tag", {
+              method: "POST",
+              headers: { "Content-Type": "application/json" },
+              body: JSON.stringify({
+                photoIds,
+                tags: tags.split(",").map(t => t.trim())
+              })
+            });
+
+            const out = await res.json();
+            if (out.success) location.reload();
+          };
+
+          document.getElementById("locAll").onclick = async () => {
+            const loc = prompt("Enter location (lat,lng):");
+            if (!loc) return;
+
+            const [lat, lng] = loc.split(",").map(Number);
+
+            const res = await fetch("/location/add/bulk", {
+              method: "POST",
+              headers: { "Content-Type": "application/json" },
+              body: JSON.stringify({ photoIds, lat, lng })
+            });
+
+            if ((await res.json()).success) location.reload();
+          };
+
+          document.getElementById("albumAll").onclick = async () => {
+            const album = prompt("Album name:");
+            if (!album) return;
+
+            const res = await fetch("/albums/create", {
+              method: "POST",
+              headers: { "Content-Type": "application/json" },
+              body: JSON.stringify({ name: album, photoIds })
+            });
+
+            if ((await res.json()).success) location.reload();
+          };

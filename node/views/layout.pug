@@ -61,6 +61,12 @@ html
                 : "text-gray-700 hover:text-blue-600")
             ) Tags
             a(
+            href="/albums"
+            class=(active === 'albums'
+                ? "text-blue-600 font-semibold"
+                : "text-gray-700 hover:text-blue-600")
+            ) Albums
+            a(
             href="/map"
             class=(active === 'map'
                 ? "text-blue-600 font-semibold"

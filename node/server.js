@@ -5,19 +5,8 @@ import serve from "koa-static";
 import bodyParser from "koa-bodyparser";
 import views from "koa-views";
 import path from "path";
-import { fileURLToPath } from "url";
-import facesRouter from "./routes/faces.js";
-import facesTagRouter from "./routes/faces-tag.js";
-import uploadRoutes from "./routes/upload.js";
-import dirRouter from "./routes/dir.js";
-import mapRouter from './routes/map.js'
-import clustersRouter from "./routes/clusters.js";
-import statusRouter from "./routes/scan-status.js";
-import scanFolder from "./routes/scan.js";
-import dashboardRouter from "./routes/dashboard.js";
-import photoDetail from "./routes/photo.js";
-import tagsRouter from "./routes/tags.js";
-import peopleRouter from "./routes/people.js";
+import { fileURLToPath, pathToFileURL } from "url";
+import fs from "fs";
 
 const __filename = fileURLToPath(import.meta.url);
 const __dirname = path.dirname(__filename);
@@ -34,6 +23,24 @@ app.use(
   }),
 );
 
+// Auto-load and register all routers from ./routes
+async function registerRoutes(appInstance) {
+  const routesDir = path.join(__dirname, "routes");
+  const files = fs.readdirSync(routesDir).filter((f) => f.endsWith(".js"));
+
+  // Import and mount every default export that looks like a Koa router
+  for (const file of files) {
+    const fullPath = path.join(routesDir, file);
+    const moduleUrl = pathToFileURL(fullPath).href;
+    const mod = await import(moduleUrl);
+    const candidate = mod.default ?? mod.router ?? mod.routes ?? mod;
+
+    if (candidate && typeof candidate.routes === "function" && typeof candidate.allowedMethods === "function") {
+      appInstance.use(candidate.routes()).use(candidate.allowedMethods());
+    }
+  }
+}
+
 router.get("/upload", async (ctx) => {
   await ctx.render("upload", { active: "upload" });
 });
@@ -42,18 +49,8 @@ router.get("/browse", async (ctx) => {
   await ctx.render("dir-browser", { active: "browser" });
 });
 
-app.use(dashboardRouter.routes()).use(dashboardRouter.allowedMethods());
-app.use(mapRouter.routes()).use(mapRouter.allowedMethods());
-app.use(uploadRoutes.routes()).use(uploadRoutes.allowedMethods());
-app.use(dirRouter.routes()).use(dirRouter.allowedMethods());
-app.use(facesRouter.routes()).use(facesRouter.allowedMethods());
-app.use(facesTagRouter.routes()).use(facesTagRouter.allowedMethods());
-app.use(statusRouter.routes()).use(statusRouter.allowedMethods());
-app.use(scanFolder.routes()).use(scanFolder.allowedMethods());
-app.use(photoDetail.routes()).use(photoDetail.allowedMethods());
-app.use(clustersRouter.routes()).use(clustersRouter.allowedMethods());
-app.use(peopleRouter.routes()).use(peopleRouter.allowedMethods());
-app.use(tagsRouter.routes()).use(tagsRouter.allowedMethods());
+// Register all routes from the routes directory
+await registerRoutes(app);
 
 app.use(router.routes()).use(router.allowedMethods());
 
