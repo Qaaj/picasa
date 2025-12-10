@@ -14,7 +14,8 @@ router.get("/clusters", async (ctx) => {
     JOIN faces f ON f.cluster_id = fc.id
     WHERE fc.ignored = false OR fc.ignored IS NULL
     GROUP BY fc.id, fc.face_count
-    ORDER BY fc.face_count DESC, fc.id ASC;
+    ORDER BY fc.face_count DESC, fc.id ASC
+    LIMIT 50;
   `);
 
   ctx.state.clusters = res.rows;
