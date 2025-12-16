@@ -102,7 +102,7 @@ async function processItem(item) {
     console.error(`[WORKER] Failed: ${filePath}`, err);
 
     await pool.query(
-      `UPDATE task_items SET status='failed', error_message=$2 WHERE id=$1`,
+      `UPDATE task_items SET status='failed', error=$2 WHERE id=$1`,
       [item.id, err.message]
     );
   }
