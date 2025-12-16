@@ -10,7 +10,7 @@ router.get("/", (ctx) => {
 
 router.get("/dashboard", async (ctx) => {
   const page = parseInt(ctx.query.page || "1", 10);
-  const pageSize = 100; // adjust if needed
+  const pageSize = 200; // adjust if needed
   const offset = (page - 1) * pageSize;
 
   const { rows } = await pool.query(

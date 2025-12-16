@@ -15,14 +15,28 @@ mixin photoCard(p)
         )
             | #{p.file_name}
 
-        // delete button
-        form(
+        div(
+          class="absolute top-2 right-2 flex gap-1 group/delete"
+        )
+          input(
+            type="checkbox"
+            id=`confirm-${p.id}`
+            class="peer hidden"
+          )
+
+          label(
+            for=`confirm-${p.id}`
+            class="peer-checked:hidden bg-red-600 text-white text-xs px-2 py-1 rounded shadow hover:bg-red-700 cursor-pointer opacity-0 group-hover:opacity-100 transition"
+          )
+            | DELETE
+
+          form(
             method="POST"
             action=`/photo/${p.id}/delete`
-            class="absolute top-2 right-2 opacity-0 group-hover:opacity-100 transition"
-        )
+            class="hidden peer-checked:block"
+          )
             button(
-                type="submit"
-                class="bg-red-600 text-white text-xs px-2 py-1 rounded shadow hover:bg-red-700"
+              type="submit"
+              class="bg-red-800 text-white text-xs px-2 py-1 rounded shadow hover:bg-red-900"
             )
-                | DELETE
+              | confirm?
