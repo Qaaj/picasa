@@ -11,7 +11,8 @@ html
     // NAVIGATION BAR
     nav.bg-white.shadow-sm.border-b.border-gray-200
       .max-w-7xl.mx-auto.px-4
-        .flex.items-center.h-14.gap-8
+        .flex.items-center.h-14.gap-8.justify-between
+          .flex.items-center.gap-8
             a(
             href="/"
             class=(active === 'dashboard'
@@ -72,6 +73,9 @@ html
                 ? "text-blue-600 font-semibold"
                 : "text-gray-700 hover:text-blue-600")
             ) Map
+
+          .text-sm.text-gray-500.capitalize.opacity-50
+            | #{process.env.DATABASE_URL.split('/')[3]}
 
 
     main.max-w-7xl.mx-auto.px-6.py-8

@@ -23,6 +23,7 @@ app.use(
   }),
 );
 
+
 // Auto-load and register all routers from ./routes
 async function registerRoutes(appInstance) {
   const routesDir = path.join(__dirname, "routes");

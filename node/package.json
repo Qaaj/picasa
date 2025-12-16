@@ -8,6 +8,7 @@
     "import": "node scripts/import.js",
     "benchmark": "node scripts/benchmark.js",
     "watch": "nodemon server.js",
+    "new-db": "bash ./scripts/create-db.sh",
     "migrate": "node-pg-migrate",
     "migrate:make": "node-pg-migrate create"
   },
