@@ -32,6 +32,40 @@ router.get("/photo/:id", async (ctx) => {
   await ctx.render("photo-detail", { photo: rows[0], active: "photo-detail", faces, related });
 });
 
+// routes/photo.js
+router.post('/photo/:id/delete', async (ctx) => {
+  const { id } = ctx.params;
+
+  // 1. fetch file path (optional but usually needed)
+  const { rows } = await pool.query(
+    'SELECT file_path FROM photos WHERE id = $1',
+    [id]
+  );
+
+  if (rows.length === 0) {
+    ctx.status = 404;
+    return;
+  }
+
+  const filePath = rows[0].file_path;
+
+  // 2. delete DB row (faces should cascade if FK is set)
+  await pool.query(
+    'DELETE FROM photos WHERE id = $1',
+    [id]
+  );
+
+  // 3. delete file (best-effort)
+  try {
+    await fs.promises.unlink(filePath);
+  } catch (_) {
+    // ignore missing files
+  }
+
+  // 4. go back
+  ctx.redirect(ctx.headers.referer || '/');
+});
+
 
 router.get("/photo/full/:id/:filename", async (ctx) => {
   const { id } = ctx.params;

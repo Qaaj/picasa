@@ -1,0 +1,28 @@
+mixin photoCard(p)
+    a(
+        href=`/photo/${p.id}`
+        class="group relative block bg-white shadow rounded-lg overflow-hidden transition hover:shadow-lg"
+    )
+        img(
+            src=p.thumb_base64
+            alt=p.file_name
+            class="w-full h-40 object-cover"
+        )
+
+        // filename overlay
+        div(
+            class="absolute bottom-0 left-0 right-0 bg-black/60 text-white text-xs px-2 py-1 opacity-0 group-hover:opacity-100 transition truncate"
+        )
+            | #{p.file_name}
+
+        // delete button
+        form(
+            method="POST"
+            action=`/photo/${p.id}/delete`
+            class="absolute top-2 right-2 opacity-0 group-hover:opacity-100 transition"
+        )
+            button(
+                type="submit"
+                class="bg-red-600 text-white text-xs px-2 py-1 rounded shadow hover:bg-red-700"
+            )
+                | DELETE
