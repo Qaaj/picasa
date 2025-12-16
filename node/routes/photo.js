@@ -92,4 +92,6 @@ router.get("/photo/full/:id/:filename", async (ctx) => {
 
   ctx.body = fs.createReadStream(absPath);
 });
+
+
 export default router;

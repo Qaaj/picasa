@@ -107,18 +107,18 @@ mixin photoFull(photo, faces)
           return;
         }
 
-        // Delete face
+        // Delete face (hard delete)
         const del = e.target;
         if (del.matches('button[data-face-id]') && del.textContent.trim() === '✕') {
           const faceId = del.dataset.faceId;
 
-          fetch('/faces/ignore', {
-            method: 'POST',
-            headers: { 'Content-Type': 'application/json' },
-            body: JSON.stringify({ faceIds: [faceId] })
+          if (!confirm('Delete this face permanently?')) return;
+
+          fetch(`/faces/${faceId}`, {
+            method: 'DELETE'
           })
             .then(res => {
-              if (!res.ok) throw new Error('Ignore failed');
+              if (!res.ok) throw new Error('Delete failed');
               window.location.reload();
             });
         }

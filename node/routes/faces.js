@@ -69,5 +69,34 @@ router.post("/faces/ignore", async (ctx) => {
 
   ctx.body = { success: true, ignored: faceIds.length };
 });
+// DELETE /faces/:id
+router.delete('/faces/:id', async (ctx) => {
+  const faceId = Number(ctx.params.id);
+  if (!faceId) {
+    ctx.status = 400;
+    ctx.body = { error: 'Invalid face id' };
+    return;
+  }
 
+  try {
+    await pool.query('BEGIN');
+
+    // Delete face (clusters handled elsewhere or via FK rules)
+    const res = await pool.query(
+      'DELETE FROM faces WHERE id = $1',
+      [faceId]
+    );
+
+    if (res.rowCount === 0) {
+      throw new Error('Face not found');
+    }
+
+    await pool.query('COMMIT');
+    ctx.body = { success: true };
+  } catch (err) {
+    await pool.query('ROLLBACK');
+    ctx.status = 500;
+    ctx.body = { error: err.message };
+  }
+});
 export default router;
