@@ -1,4 +1,8 @@
 doctype html
+
+include components/photo-full.pug
+//- Full photo component (photo + detected faces list)
+
 html
   head
     title #{photo.file_name}
@@ -10,23 +14,7 @@ html
     a(href="/", class="text-blue-600 block mb-4") ← Back
     div(class="max-w-6xl mx-auto bg-white shadow p-6 rounded-lg flex flex-col md:flex-row gap-8")
 
-      // LEFT: main photo & faces
-      div(class="flex-1")
-        img(src=`${photo.thumb_base64}`, class="w-full rounded-lg shadow mb-6")
-
-        if faces.length > 0
-          h2(class="text-lg font-semibold mb-3") Faces in this Photo
-
-          div(class="flex flex-wrap gap-4")
-            each f in faces
-              .border.rounded-lg.shadow.p-2.bg-white
-                img(class="w-24 h-24 object-cover rounded", src=`data:image/jpeg;base64,${f.crop_base64}`)
-                if f.person_name
-                  p(class="text-xs text-green-700 mt-1 font-medium") #{f.person_name}
-                else if f.cluster_id
-                  p(class="text-xs text-gray-500 mt-1") Cluster #{f.cluster_id}
-                else
-                  p(class="text-xs text-gray-400 mt-1") Unknown
+      +photoFull(photo, faces)
 
       // RIGHT: metadata panel
       div(class="w-full md:w-80 space-y-6")

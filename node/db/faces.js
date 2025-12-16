@@ -17,7 +17,8 @@ export async function loadFacesForPhoto(photoHash) {
       fc.id AS cluster_id,
       f.bbox,
       f.landmarks,
-      f.confidence
+      f.confidence,
+      f.ignored
     FROM faces f
     LEFT JOIN people p ON p.id = f.person_id
     LEFT JOIN face_clusters fc ON fc.id = f.cluster_id

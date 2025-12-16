@@ -9,11 +9,16 @@ router.get("/clusters", async (ctx) => {
     SELECT
       fc.id,
       fc.face_count,
-      MIN(f.crop_base64) AS sample_face
+      rep.crop_base64 AS sample_face
     FROM face_clusters fc
-    JOIN faces f ON f.cluster_id = fc.id
-    WHERE fc.ignored = false OR fc.ignored IS NULL
-    GROUP BY fc.id, fc.face_count
+    JOIN LATERAL (
+      SELECT f.crop_base64
+      FROM faces f
+      WHERE f.cluster_id = fc.id
+      ORDER BY f.embedding <-> fc.centroid
+      LIMIT 1
+    ) rep ON true
+    WHERE fc.ignored IS NOT TRUE
     ORDER BY fc.face_count DESC, fc.id ASC
     LIMIT 50;
   `);

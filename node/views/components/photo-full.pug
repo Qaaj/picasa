@@ -1,0 +1,188 @@
+mixin photoFull(photo, faces)
+  .flex-1
+    img(
+      src=`${photo.thumb_base64}`
+      class="block w-full rounded-lg shadow"
+    )
+
+    // Face list (existing functionality preserved)
+    if faces.length > 0
+      h2(class="text-lg font-semibold mt-6 mb-3") Faces in this Photo
+
+      .flex.flex-wrap.gap-4
+        each f in faces
+            if !f.ignored
+              .relative.border.rounded-lg.shadow.p-2.bg-white.group
+                // Delete button (hover, top-right)
+                button(
+                  type="button"
+                  class="absolute top-1 right-1 hidden group-hover:block text-gray-400 hover:text-red-600 text-xs"
+                  data-face-id=f.id
+                ) ✕
+
+                img(
+                  class="w-24 h-24 object-cover rounded mb-1"
+                  src=`data:image/jpeg;base64,${f.crop_base64}`
+                )
+
+                if f.person_name
+                  p(class="text-xs text-green-700 font-medium") #{f.person_name}
+                else if f.cluster_id
+                  .flex.items-center.gap-1
+                    span(
+                      class="text-xs text-gray-500 cursor-pointer cluster-label"
+                      data-cluster-id=f.cluster_id
+                      data-face-id=f.id
+                    ) Cluster #{f.cluster_id}
+
+                    input(
+                      type="text"
+                      class="hidden border rounded px-1 py-0.5 text-xs w-20 cluster-input"
+                      data-cluster-id=f.cluster_id
+                      data-face-id=f.id
+                      placeholder="Name…"
+                    )
+
+                    ul(
+                      class="absolute bg-white border rounded shadow hidden mt-1 w-40 z-10 cluster-suggestions"
+                    )
+
+                    button(
+                      type="button"
+                      class="hidden text-green-600 text-xs confirm-cluster"
+                      data-face-id=f.id
+                    ) ✓
+                else
+                  p(class="text-xs text-gray-400") Unknown
+
+    script.
+      // ---- CLICK HANDLERS (label, confirm, delete) ----
+      document.addEventListener('click', function (e) {
+
+        // Enter edit mode
+        const label = e.target.closest('.cluster-label');
+        if (label) {
+          const container = label.parentElement;
+          const input = container.querySelector('.cluster-input');
+          const confirm = container.querySelector('.confirm-cluster');
+          const suggestions = container.querySelector('.cluster-suggestions');
+
+          label.classList.add('hidden');
+          input.classList.remove('hidden');
+          confirm.classList.remove('hidden');
+          input.value = '';
+          input.dataset.personId = '';
+          suggestions.classList.add('hidden');
+
+          input.focus();
+          e.stopPropagation();
+          return;
+        }
+
+        // Confirm cluster assignment
+        const confirmBtn = e.target.closest('.confirm-cluster');
+        if (confirmBtn) {
+          const container = confirmBtn.parentElement;
+          const input = container.querySelector('.cluster-input');
+          const faceId = confirmBtn.dataset.faceId;
+          const name = input.value.trim();
+          const personId = input.dataset.personId || null;
+          const clusterId = input.dataset.clusterId;
+
+          if (!name) {
+            alert('Enter a name first.');
+            return;
+          }
+
+          fetch('/clusters/promote', {
+            method: 'POST',
+            headers: { 'Content-Type': 'application/json' },
+            body: JSON.stringify({
+              name,
+              personId,
+              clusterIds: [clusterId]
+            })
+          }).then(() => window.location.reload());
+
+          return;
+        }
+
+        // Delete face
+        const del = e.target;
+        if (del.matches('button[data-face-id]') && del.textContent.trim() === '✕') {
+          const faceId = del.dataset.faceId;
+
+          fetch('/faces/ignore', {
+            method: 'POST',
+            headers: { 'Content-Type': 'application/json' },
+            body: JSON.stringify({ faceIds: [faceId] })
+          })
+            .then(res => {
+              if (!res.ok) throw new Error('Ignore failed');
+              window.location.reload();
+            });
+        }
+      });
+
+      // ---- AUTOCOMPLETE PER FACE INPUT ----
+      document.querySelectorAll('.cluster-input').forEach(input => {
+        let debounceTimeout = null;
+        const container = input.parentElement;
+        const suggestions = container.querySelector('.cluster-suggestions');
+
+        input.addEventListener('input', () => {
+          const query = input.value.trim();
+          if (debounceTimeout) clearTimeout(debounceTimeout);
+
+          if (!query) {
+            suggestions.innerHTML = '';
+            suggestions.classList.add('hidden');
+            return;
+          }
+
+          debounceTimeout = setTimeout(() => {
+            fetch(`/api/people/search?name=${encodeURIComponent(query)}`)
+              .then(res => res.json())
+              .then(data => {
+                suggestions.innerHTML = '';
+
+                if (data.length > 0) {
+                  data.forEach(person => {
+                    const li = document.createElement('li');
+                    li.textContent = person.name;
+                    li.className = 'px-2 py-1 cursor-pointer hover:bg-blue-100 text-sm';
+                    li.addEventListener('click', () => {
+                      input.value = person.name;
+                      input.dataset.personId = person.id;
+                      suggestions.classList.add('hidden');
+                    });
+                    suggestions.appendChild(li);
+                  });
+                }
+
+                const liNew = document.createElement('li');
+                liNew.className = 'px-2 py-1 cursor-pointer hover:bg-blue-100 text-blue-600 text-sm';
+                liNew.textContent = `➕ Create new: ${query}`;
+                liNew.addEventListener('click', () => {
+                  input.dataset.personId = '';
+                  suggestions.classList.add('hidden');
+                });
+                suggestions.appendChild(liNew);
+
+                suggestions.classList.remove('hidden');
+              })
+              .catch(() => {
+                suggestions.innerHTML = '';
+                suggestions.classList.add('hidden');
+              });
+          }, 300);
+        });
+
+        // Hide suggestions when clicking outside
+        document.addEventListener('click', (e) => {
+          if (!input.contains(e.target) && !suggestions.contains(e.target)) {
+            suggestions.innerHTML = '';
+            suggestions.classList.add('hidden');
+          }
+        });
+      });

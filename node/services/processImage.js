@@ -27,6 +27,12 @@ export async function processImage(
     fileBuffer = await sharp(filePath).toBuffer();
   }
 
+  const imageMetaEarly = await sharp(fileBuffer).metadata();
+  const imageWidth = imageMetaEarly.width ?? null;
+  const imageHeight = imageMetaEarly.height ?? null;
+
+  console.log('Hello',{ imageHeight, imageWidth })
+
   // -------------------------
   // 1. Hash + dedup
   // -------------------------
@@ -77,6 +83,8 @@ export async function processImage(
        file_path,
        exif,
        annotation,
+       width,
+       height,
        location_point,
        location_metadata,
        gps_altitude,
@@ -99,13 +107,14 @@ export async function processImage(
        $4,$5,
        $6,$7,
        $8,$9,
-       $10,$11,$12,
-       $13,$14,$15,$16,
-       $17,
-       $18,
+       $10,$11,
+       $12,$13,$14,
+       $15,$16,$17,$18,
        $19,
        $20,
-       $21
+       $21,
+       $22,
+       $23
      )
      RETURNING id;
      `,
@@ -115,6 +124,8 @@ export async function processImage(
       filePath,
       exifRaw,
       null, // annotation (filled later)
+      imageWidth,
+      imageHeight,
       meta.location_point,
       meta.location_metadata,
       meta.gps_altitude,
